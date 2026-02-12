@@ -13,6 +13,9 @@ xcuserdata/
 # Environment
 .env
 
+# Claude Code
+.claude/
+
 # Build artifacts
 Koe.app
 dist/
