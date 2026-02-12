@@ -166,12 +166,8 @@ struct OverlayView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(statusColor.opacity(0.5), lineWidth: 1.5)
-        )
         .padding(4)
     }
 
@@ -186,10 +182,10 @@ struct OverlayView: View {
                 .scaleEffect(0.7)
         case .rewriting:
             Image(systemName: "sparkles")
-                .foregroundColor(.purple)
+                .foregroundColor(.secondary)
         case .done:
             Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+                .foregroundColor(.secondary)
         case .error:
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundColor(.orange)
