@@ -3,6 +3,25 @@
 macOS メニューバー常駐の音声入力アプリです。  
 `fn` を押している間だけ録音し、離したら文字起こししてアクティブアプリに貼り付けます。
 
+## Quick Start
+
+```bash
+cp .env.example .env
+# .env に GEMINI_API_KEY=... を設定
+./build.sh
+open /Applications/TypelessClone.app
+```
+
+初回起動時に以下を許可してください。
+- マイク
+- 音声認識
+- アクセシビリティ
+- 入力監視
+
+使い方:
+- `fn` を押しながら話す
+- `fn` を離すと確定して貼り付け
+
 ## 前提環境
 
 - macOS 14 以上
@@ -31,7 +50,7 @@ GEMINI_API_KEY=your_api_key_here
 
 `/Applications/TypelessClone.app` にインストールされます。
 
-## 使い方
+## 詳細な使い方
 
 1. アプリ起動
 
@@ -95,4 +114,3 @@ tccutil reset Accessibility com.typelessclone.app
 tccutil reset ListenEvent com.typelessclone.app
 tccutil reset PostEvent com.typelessclone.app
 ```
-
