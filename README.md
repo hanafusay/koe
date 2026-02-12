@@ -138,7 +138,7 @@ API キー、認識言語、校正プロンプトを設定できます。
 1. アプリをビルド＆インストール
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/hanafusay/typeless-clone.git
 cd typeless-clone
 cp .env.example .env
 # .env に GEMINI_API_KEY=... を設定
@@ -190,55 +190,8 @@ tccutil reset PostEvent com.typelessclone.app
 
 #### 初回セットアップ
 
-`.github/workflows/release.yml` を作成してください:
-
-```yaml
-name: Release DMG
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
-
-jobs:
-  build-and-release:
-    runs-on: macos-14
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build release binary
-        run: swift build -c release
-
-      - name: Create app bundle and DMG
-        run: ./create-dmg.sh --skip-build
-
-      - name: Get version from tag
-        id: version
-        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: TypelessClone ${{ steps.version.outputs.tag }}
-          body: |
-            ## インストール方法
-
-            1. `TypelessClone-*.dmg` をダウンロード
-            2. DMG を開いて `TypelessClone.app` を `Applications` にドラッグ
-            3. **初回起動:** Finder で右クリック →「開く」
-            4. 権限を許可（マイク・音声認識・アクセシビリティ・入力監視）
-            5. メニューバーのアイコン →「設定」から Gemini API キーを入力
-
-            > macOS 14 (Sonoma) 以上が必要です。
-            > 署名なしアプリのため初回は右クリック →「開く」が必要です。
-          files: dist/*.dmg
-          draft: false
-          prerelease: false
-```
+ワークフロー定義は [`.github/workflows/release.yml`](.github/workflows/release.yml) にあります。
+特別な設定は不要です。
 
 #### リリースの実行
 

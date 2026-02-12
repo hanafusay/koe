@@ -1,6 +1,4 @@
 #!/bin/bash
-set -euo pipefail
-
 # ============================================================
 # create-dmg.sh — TypelessClone の配布用 DMG を作成する
 #
@@ -15,16 +13,11 @@ set -euo pipefail
 # 出力:
 #   ./dist/TypelessClone-<version>.dmg
 # ============================================================
+set -euo pipefail
 
-APP_NAME="TypelessClone"
-BUNDLE_ID="com.typelessclone.app"
-BUILD_DIR=".build/release"
-APP_BUNDLE="${APP_NAME}.app"
-CONTENTS_DIR="${APP_BUNDLE}/Contents"
-MACOS_DIR="${CONTENTS_DIR}/MacOS"
-RESOURCES_DIR="${CONTENTS_DIR}/Resources"
-ENTITLEMENTS="Resources/TypelessClone.entitlements"
-DESIGNATED_REQUIREMENT="designated => identifier \"${BUNDLE_ID}\""
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/scripts/lib.sh"
+
 DIST_DIR="dist"
 SKIP_BUILD=0
 
@@ -37,7 +30,11 @@ for arg in "$@"; do
 done
 
 # Read version from Info.plist
-VERSION=$(defaults read "$(pwd)/Resources/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.0")
+VERSION=$(defaults read "$(pwd)/Resources/Info.plist" CFBundleShortVersionString 2>/dev/null || true)
+if [ -z "${VERSION}" ]; then
+    echo "Warning: Could not read version from Info.plist, falling back to 0.0.0" >&2
+    VERSION="0.0.0"
+fi
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 
 echo "=== TypelessClone DMG Builder ==="
@@ -48,57 +45,28 @@ echo ""
 # 1. Build (unless --skip-build)
 # -------------------------------------------------------
 if [ "${SKIP_BUILD}" = "0" ]; then
-    echo "=== Building ${APP_NAME} (release) ==="
-    swift build -c release
+    build_release
     echo ""
 fi
 
 # -------------------------------------------------------
 # 2. Create .app bundle
 # -------------------------------------------------------
-echo "=== Creating app bundle ==="
-rm -rf "${APP_BUNDLE}"
-mkdir -p "${MACOS_DIR}"
-mkdir -p "${RESOURCES_DIR}"
-
-# Copy executable
-cp "${BUILD_DIR}/${APP_NAME}" "${MACOS_DIR}/"
-echo "  Executable copied"
-
-# Copy Info.plist
-cp "Resources/Info.plist" "${CONTENTS_DIR}/Info.plist"
-echo "  Info.plist copied"
+create_app_bundle
 
 # -------------------------------------------------------
 # 3. Code-sign (ad-hoc)
-#    Developer ID があれば --sign "Developer ID Application: ..."
-#    に変更すると Gatekeeper を通過できます
 # -------------------------------------------------------
 echo ""
-echo "=== Code signing (ad-hoc) ==="
-
-codesign --force --sign - \
-    --identifier "${BUNDLE_ID}" \
-    -r="${DESIGNATED_REQUIREMENT}" \
-    --entitlements "${ENTITLEMENTS}" \
-    "${MACOS_DIR}/${APP_NAME}"
-
-codesign --force --sign - \
-    --identifier "${BUNDLE_ID}" \
-    -r="${DESIGNATED_REQUIREMENT}" \
-    --entitlements "${ENTITLEMENTS}" \
-    "${APP_BUNDLE}"
-
-echo "  Signed (ad-hoc)"
+codesign_app
 
 # Verify
-codesign --verify --deep --strict "${APP_BUNDLE}" 2>&1
-echo "  Verification passed"
+echo ""
+verify_signature
 
 # -------------------------------------------------------
 # 4. Create DMG
 # -------------------------------------------------------
-echo ""
 echo "=== Creating DMG ==="
 
 mkdir -p "${DIST_DIR}"
@@ -184,6 +152,6 @@ echo "  - 受け取った人は初回起動時に右クリック →「開く」
 echo "  - Developer ID で署名 + notarize すれば、ダブルクリックで起動できます"
 echo ""
 echo "Developer ID 署名で作成するには:"
-echo "  1. Apple Developer Program に登録（年額 $99）"
+echo "  1. Apple Developer Program に登録（年額 \$99）"
 echo "  2. create-dmg.sh 内の --sign を Developer ID に変更"
 echo "  3. notarytool で notarize を実行"
