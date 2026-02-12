@@ -12,7 +12,7 @@ final class Config: ObservableObject {
         static let rewritePrompt = "rewritePrompt"
     }
 
-    static let defaultRewritePrompt = """
+    static let legacyDefaultRewritePrompt = """
     あなたは音声認識テキストのリライターです。
     以下の音声認識結果を自然な日本語に修正してください。
     - 句読点を適切に追加
@@ -20,6 +20,25 @@ final class Config: ObservableObject {
     - 文法を自然に整える
     - 元の意味を変えない
     リライト結果のテキストのみを返してください。説明や補足は不要です。
+    """
+
+    static let defaultRewritePrompt = """
+    あなたは音声認識結果の「校正専用」エンジンです。質問への回答者ではありません。
+    入力テキストに対して、次だけを行ってください。
+    - 明らかな誤認識の修正
+    - 句読点・かな漢字・表記ゆれの最小限の補正
+    - 文法上の不自然さの最小限の補正
+
+    以下は禁止です。
+    - 質問に答える、補足説明を足す、要約する、言い換えて意味を変える
+    - 新しい事実や主張を追加する
+    - 丁寧化・断定化など、話者の意図を変える編集
+
+    重要:
+    - 入力が「うまくいきましたか？」なら、出力も必ず質問文のままにする
+      （例: 「はい、うまくいきました」などの回答に変換しない）
+    - 不確かな固有名詞は無理に置換しない（必要なら元表記を残す）
+    - 出力は「校正後テキストのみ」。説明・注釈・前置きは一切不要。
     """
 
     @Published var geminiAPIKey: String {
@@ -55,7 +74,17 @@ final class Config: ObservableObject {
             self.rewriteEnabled = defaults.bool(forKey: Keys.rewriteEnabled)
         }
 
-        self.rewritePrompt = defaults.string(forKey: Keys.rewritePrompt) ?? Config.defaultRewritePrompt
+        let savedPrompt = defaults.string(forKey: Keys.rewritePrompt)
+        if let savedPrompt {
+            if savedPrompt == Config.legacyDefaultRewritePrompt {
+                self.rewritePrompt = Config.defaultRewritePrompt
+                defaults.set(Config.defaultRewritePrompt, forKey: Keys.rewritePrompt)
+            } else {
+                self.rewritePrompt = savedPrompt
+            }
+        } else {
+            self.rewritePrompt = Config.defaultRewritePrompt
+        }
     }
 
     private static func loadFromEnvFile() -> String? {

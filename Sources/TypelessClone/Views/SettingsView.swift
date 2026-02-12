@@ -33,12 +33,12 @@ struct SettingsView: View {
                 }
             }
 
-            Section("リライト") {
-                Toggle("Gemini リライトを有効にする", isOn: $config.rewriteEnabled)
+            Section("校正") {
+                Toggle("Gemini 校正を有効にする", isOn: $config.rewriteEnabled)
 
                 if config.rewriteEnabled {
                     VStack(alignment: .leading) {
-                        Text("リライトプロンプト:")
+                        Text("校正プロンプト:")
                             .font(.caption)
                         TextEditor(text: $config.rewritePrompt)
                             .font(.system(.body, design: .monospaced))
@@ -46,7 +46,7 @@ struct SettingsView: View {
                             .border(Color.gray.opacity(0.3))
                     }
 
-                    Button("プロンプトをリセット") {
+                    Button("校正プロンプトをリセット") {
                         config.rewritePrompt = Config.defaultRewritePrompt
                     }
                 }
