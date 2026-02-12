@@ -12,7 +12,7 @@ final class OverlayPanel: NSPanel {
         self.hostingView = NSHostingView(rootView: OverlayView(state: state))
 
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 56),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 100),
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: true
@@ -38,11 +38,11 @@ final class OverlayPanel: NSPanel {
         let visibleFrame = screen.visibleFrame
 
         let panelWidth: CGFloat = 340
-        let panelHeight: CGFloat = 56
+        let panelHeight: CGFloat = 100
 
-        // Position below the caret/cursor
+        // Position above the caret/cursor
         var x = position.x
-        var y = position.y - panelHeight - 8
+        var y = position.y + 8
 
         // Keep within screen bounds
         if x + panelWidth > visibleFrame.maxX {
@@ -51,8 +51,8 @@ final class OverlayPanel: NSPanel {
         if x < visibleFrame.minX {
             x = visibleFrame.minX + 8
         }
-        if y < visibleFrame.minY {
-            y = position.y + 24
+        if y + panelHeight > visibleFrame.maxY {
+            y = position.y - panelHeight - 8
         }
 
         self.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: true)
@@ -62,28 +62,6 @@ final class OverlayPanel: NSPanel {
     func updateStatus(_ status: OverlayStatus, text: String = "") {
         overlayState.status = status
         overlayState.text = text
-
-        let baseHeight: CGFloat = 40
-        let textHeight: CGFloat = text.isEmpty ? 0 : min(60, CGFloat((text.count / 25) + 1) * 16 + 4)
-        let totalHeight = baseHeight + textHeight + 16
-
-        var frame = self.frame
-        let topY = frame.maxY
-        frame.size.height = totalHeight
-        frame.origin.y = topY - totalHeight
-
-        // Keep the overlay inside the current screen while preserving horizontal position.
-        let anchorPoint = NSPoint(x: frame.midX, y: topY)
-        if let screen = NSScreen.screens.first(where: { NSMouseInRect(anchorPoint, $0.frame, false) }) ?? NSScreen.main {
-            let visibleFrame = screen.visibleFrame
-            if frame.minY < visibleFrame.minY + 8 {
-                frame.origin.y = visibleFrame.minY + 8
-            } else if frame.maxY > visibleFrame.maxY - 8 {
-                frame.origin.y = visibleFrame.maxY - frame.height - 8
-            }
-        }
-
-        self.setFrame(frame, display: true)
     }
 
     func dismiss() {
@@ -180,7 +158,7 @@ struct OverlayView: View {
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(3)
-                        .truncationMode(.tail)
+                        .truncationMode(.head)
                 }
             }
 
