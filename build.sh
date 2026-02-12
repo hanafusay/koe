@@ -1,17 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="TypelessClone"
-BUNDLE_ID="com.typelessclone.app"
-BUILD_DIR=".build/release"
-APP_BUNDLE="${APP_NAME}.app"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/scripts/lib.sh"
+
 INSTALL_DIR="/Applications"
-CONTENTS_DIR="${APP_BUNDLE}/Contents"
-MACOS_DIR="${CONTENTS_DIR}/MacOS"
-RESOURCES_DIR="${CONTENTS_DIR}/Resources"
-ENTITLEMENTS="Resources/TypelessClone.entitlements"
 RESET_TCC="${RESET_TCC:-0}"
-DESIGNATED_REQUIREMENT='designated => identifier "com.typelessclone.app"'
 
 # -------------------------------------------------------
 # 1. Stop running instance & clean up old installation
@@ -35,25 +29,13 @@ fi
 # 2. Build
 # -------------------------------------------------------
 echo ""
-echo "=== Building ${APP_NAME} (release) ==="
-swift build -c release
+build_release
 
 # -------------------------------------------------------
 # 3. Create .app bundle
 # -------------------------------------------------------
 echo ""
-echo "=== Creating app bundle ==="
-rm -rf "${APP_BUNDLE}"
-mkdir -p "${MACOS_DIR}"
-mkdir -p "${RESOURCES_DIR}"
-
-# Copy executable
-cp "${BUILD_DIR}/${APP_NAME}" "${MACOS_DIR}/"
-echo "  Executable copied"
-
-# Copy Info.plist (must be at Contents/Info.plist)
-cp "Resources/Info.plist" "${CONTENTS_DIR}/Info.plist"
-echo "  Info.plist copied"
+create_app_bundle
 
 # Copy .env if it exists (into Resources, not MacOS — MacOS is for code only)
 if [ -f ".env" ]; then
@@ -63,41 +45,13 @@ fi
 
 # -------------------------------------------------------
 # 4. Code-sign the app bundle
-#    - Ad-hoc sign (-s -) is sufficient for local use
-#    - --identifier ensures TCC uses the bundle ID
-#    - entitlements are optional for this app, but included for consistency
-#    - --deep signs nested frameworks/helpers if any
-#    - --options runtime enables hardened runtime (optional
-#      for local dev but good practice)
 # -------------------------------------------------------
 echo ""
-echo "=== Code signing ==="
-
-# Sign the executable first (inside the bundle)
-codesign --force --sign - \
-    --identifier "${BUNDLE_ID}" \
-    -r="${DESIGNATED_REQUIREMENT}" \
-    --entitlements "${ENTITLEMENTS}" \
-    "${MACOS_DIR}/${APP_NAME}"
-echo "  Signed executable"
-
-# Sign the whole bundle (seals Info.plist & Resources)
-codesign --force --sign - \
-    --identifier "${BUNDLE_ID}" \
-    -r="${DESIGNATED_REQUIREMENT}" \
-    --entitlements "${ENTITLEMENTS}" \
-    "${APP_BUNDLE}"
-echo "  Signed app bundle"
+codesign_app
 
 # Verify
 echo ""
-echo "=== Verifying signature ==="
-codesign --verify --deep --strict --verbose=2 "${APP_BUNDLE}" 2>&1
-echo ""
-codesign -dvvv "${APP_BUNDLE}" 2>&1 | grep -E "^(Identifier|Info\.plist|Sealed|TeamIdentifier|Signature|Format)"
-echo ""
-codesign -d --entitlements :- "${APP_BUNDLE}" 2>/dev/null || true
-echo ""
+verify_signature
 
 # -------------------------------------------------------
 # 5. Install to /Applications
