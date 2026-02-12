@@ -3,6 +3,8 @@
 **koe** = 声（こえ）。macOS メニューバー常駐の音声入力ユーティリティです。
 `fn` を押している間だけ録音し、離したら文字起こししてアクティブアプリに貼り付けます。
 
+![デモ](screenshots/demo.gif)
+
 ## プライバシーとセキュリティ
 
 - 開発者のサーバーにデータが送信されることはありません
@@ -99,6 +101,7 @@ open /Applications/Koe.app
 ```
 
 `build.sh` は release ビルド → .app バンドル作成 → コード署名 → `/Applications` にインストールまで一括で行います。
+DMG からインストール済みの場合でも、バンドル ID が同じため `/Applications/Koe.app` が開発ビルドで上書きされます。TCC 権限（アクセシビリティ・入力監視等）はそのまま引き継がれるので再設定は不要です。元に戻すには DMG から再インストールしてください。
 
 権限付与後にアプリを再起動:
 
@@ -110,7 +113,7 @@ pkill -x Koe; open /Applications/Koe.app
 
 ```bash
 ./create-dmg.sh
-# dist/Koe-1.1.0.dmg が生成される
+# dist/Koe-<version>.dmg が生成される
 ```
 
 ### リリースの作り方
@@ -118,6 +121,6 @@ pkill -x Koe; open /Applications/Koe.app
 タグを push すると GitHub Actions が自動で DMG を作成し、GitHub Releases に公開します。
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.x.0
+git push origin v1.x.0
 ```
