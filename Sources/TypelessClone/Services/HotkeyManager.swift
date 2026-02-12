@@ -128,9 +128,10 @@ final class HotkeyManager: ObservableObject {
     private func startFnReleaseWatchdog() {
         fnReleaseWatchdog?.invalidate()
         fnReleaseWatchdog = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] timer in
-            Task { @MainActor in
+            let capturedTimer = timer
+            Task { @MainActor [weak self] in
                 guard let self else {
-                    timer.invalidate()
+                    capturedTimer.invalidate()
                     return
                 }
                 let fnPressed = self.currentFnPressed()
