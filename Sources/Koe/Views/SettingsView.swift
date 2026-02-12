@@ -1,9 +1,16 @@
+import AVFoundation
 import SwiftUI
+
+struct AudioInputDevice: Identifiable {
+    let id: String  // uniqueID（空文字 = システムデフォルト）
+    let name: String
+}
 
 struct SettingsView: View {
     @ObservedObject var config = Config.shared
 
     @State private var showAPIKey = false
+    @State private var audioInputDevices: [AudioInputDevice] = []
 
     var body: some View {
         Form {
@@ -35,6 +42,14 @@ struct SettingsView: View {
                     Text("中国語 (簡体)").tag("zh-CN")
                     Text("韓国語").tag("ko-KR")
                 }
+
+                Picker("マイク", selection: $config.audioInputDeviceUID) {
+                    Text("システムデフォルト").tag("")
+                    ForEach(audioInputDevices) { device in
+                        Text(device.name).tag(device.id)
+                    }
+                }
+                .onAppear { refreshAudioDevices() }
             }
 
             Section("校正") {
@@ -127,5 +142,16 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 480, height: 600)
         .padding()
+    }
+
+    private func refreshAudioDevices() {
+        let session = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone],
+            mediaType: .audio,
+            position: .unspecified
+        )
+        audioInputDevices = session.devices.map {
+            AudioInputDevice(id: $0.uniqueID, name: $0.localizedName)
+        }
     }
 }

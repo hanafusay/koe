@@ -1,4 +1,6 @@
 import AVFoundation
+import AudioToolbox
+import CoreAudio
 import Speech
 
 @MainActor
@@ -94,6 +96,27 @@ final class SpeechManager: ObservableObject {
             }
         }
 
+        // 選択されたマイクデバイスを適用
+        let selectedUID = Config.shared.audioInputDeviceUID
+        if !selectedUID.isEmpty, let deviceID = Self.audioDeviceID(forUID: selectedUID) {
+            let inputNode = audioEngine.inputNode
+            let audioUnit = inputNode.audioUnit!
+            var deviceID = deviceID
+            let status = AudioUnitSetProperty(
+                audioUnit,
+                kAudioOutputUnitProperty_CurrentDevice,
+                kAudioUnitScope_Global,
+                0,
+                &deviceID,
+                UInt32(MemoryLayout<AudioDeviceID>.size)
+            )
+            if status != noErr {
+                Log.d("[SpeechManager] デバイス切り替え失敗 (status=\(status))、システムデフォルトを使用")
+            } else {
+                Log.d("[SpeechManager] 入力デバイスを切り替え: \(selectedUID)")
+            }
+        }
+
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
@@ -161,6 +184,40 @@ final class SpeechManager: ObservableObject {
         recognitionRequest = nil
 
         return recognizedText
+    }
+
+    /// UID から CoreAudio の AudioDeviceID を取得
+    static func audioDeviceID(forUID uid: String) -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize) == noErr else {
+            return nil
+        }
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var devices = [AudioDeviceID](repeating: 0, count: deviceCount)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize, &devices) == noErr else {
+            return nil
+        }
+
+        for device in devices {
+            var uidAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceUID,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var deviceUID: Unmanaged<CFString>?
+            var uidSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+            if AudioObjectGetPropertyData(device, &uidAddress, 0, nil, &uidSize, &deviceUID) == noErr {
+                if let uidString = deviceUID?.takeUnretainedValue() as String?, uidString == uid {
+                    return device
+                }
+            }
+        }
+        return nil
     }
 
     enum SpeechError: LocalizedError {
