@@ -189,9 +189,14 @@ struct KoeApp: App {
                 overlay.updateStatus(.rewriting, text: recognizedText)
 
                 do {
+                    var systemPrompt = config.rewritePrompt
+                    let userContext = config.rewriteUserContext.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !userContext.isEmpty {
+                        systemPrompt += "\n\n【ユーザーコンテキスト】\n" + userContext
+                    }
                     let rewritten = try await geminiService.rewrite(
                         text: recognizedText,
-                        systemPrompt: config.rewritePrompt,
+                        systemPrompt: systemPrompt,
                         apiKey: config.geminiAPIKey
                     )
                     PasteService.paste(text: rewritten)

@@ -11,7 +11,10 @@ final class Config: ObservableObject {
         static let recognitionLanguage = "recognitionLanguage"
         static let rewriteEnabled = "rewriteEnabled"
         static let rewritePrompt = "rewritePrompt"
+        static let rewriteUserContext = "rewriteUserContext"
     }
+
+    static let maxUserContextLength = 400
 
     static let legacyDefaultRewritePrompt = """
     あなたは音声認識テキストのリライターです。
@@ -58,6 +61,10 @@ final class Config: ObservableObject {
         didSet { defaults.set(rewritePrompt, forKey: Keys.rewritePrompt) }
     }
 
+    @Published var rewriteUserContext: String {
+        didSet { defaults.set(rewriteUserContext, forKey: Keys.rewriteUserContext) }
+    }
+
     @Published var launchAtLogin: Bool {
         didSet {
             do {
@@ -95,6 +102,8 @@ final class Config: ObservableObject {
         }
 
         self.launchAtLogin = SMAppService.mainApp.status == .enabled
+
+        self.rewriteUserContext = defaults.string(forKey: Keys.rewriteUserContext) ?? ""
 
         let savedPrompt = defaults.string(forKey: Keys.rewritePrompt)
         if let savedPrompt {

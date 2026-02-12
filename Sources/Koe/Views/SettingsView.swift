@@ -53,6 +53,30 @@ struct SettingsView: View {
                     Button("校正プロンプトをリセット") {
                         config.rewritePrompt = Config.defaultRewritePrompt
                     }
+
+                    VStack(alignment: .leading) {
+                        Text("マイ指示書:")
+                            .font(.caption)
+                        Text("校正時に考慮してほしい個人的な指示（専門用語、文体の好みなど）")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $config.rewriteUserContext)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minHeight: 60)
+                            .border(Color.gray.opacity(0.3))
+                            .onChange(of: config.rewriteUserContext) { _, newValue in
+                                if newValue.count > Config.maxUserContextLength {
+                                    config.rewriteUserContext = String(newValue.prefix(Config.maxUserContextLength))
+                                }
+                            }
+                        Text("\(config.rewriteUserContext.count) / \(Config.maxUserContextLength)")
+                            .font(.caption)
+                            .foregroundColor(
+                                config.rewriteUserContext.count > Config.maxUserContextLength - 20
+                                    ? .orange : .secondary
+                            )
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
             }
 
