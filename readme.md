@@ -69,6 +69,30 @@ open /Applications/TypelessClone.app
 - `fn` を離すと確定して貼り付け
 - メニューから手動録音も可能
 
+## スクリーンショット
+
+### メニューバーUI
+
+待機中のメニュー表示です。`fn` 押下で録音開始、メニューから手動録音もできます。
+
+![メニューバーUI](screenshots/menubar.png)
+
+### 設定画面（Gemini校正）
+
+API キー、認識言語、校正プロンプトを設定できます。
+
+![設定画面（Gemini校正）](screenshots/settings-gemini.png)
+
+### 設定画面（権限と操作）
+
+録音キーの案内、権限ガイド、システム設定への導線です。
+
+![設定画面（権限と操作）](screenshots/settings-permissions.png)
+
+### デモ動画
+
+収録ファイル: `screenshots/demo.mov`
+
 ## 他の Mac で起動する（ローカル利用）
 
 このアプリは Developer ID 署名 / notarize なしのローカル運用前提です。  
