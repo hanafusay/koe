@@ -41,10 +41,11 @@ jobs:
             RANGE="${GITHUB_REF_NAME}"
           fi
 
-          # マージコミットと開発用ファイルの変更を除外してログを生成
-          CHANGELOG=$(git log "$RANGE" --pretty=format:"- %s" --no-merges \
-            | grep -v "CLAUDE.md" \
-            | grep -v "Co-Authored-By")
+          # feat: と fix: のコミットのみ抽出し、プレフィックスを除去してリスト化
+          CHANGELOG=$(git log "$RANGE" --pretty=format:"%s" --no-merges \
+            | grep -E "^(feat|fix):" \
+            | sed 's/^feat: /- ✨ /' \
+            | sed 's/^fix: /- 🐛 /')
           # GITHUB_OUTPUT に複数行を書き込む
           {
             echo "changelog<<CHANGELOG_EOF"
