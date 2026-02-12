@@ -68,7 +68,21 @@ final class OverlayPanel: NSPanel {
         let totalHeight = baseHeight + textHeight + 16
 
         var frame = self.frame
+        let topY = frame.maxY
         frame.size.height = totalHeight
+        frame.origin.y = topY - totalHeight
+
+        // Keep the overlay inside the current screen while preserving horizontal position.
+        let anchorPoint = NSPoint(x: frame.midX, y: topY)
+        if let screen = NSScreen.screens.first(where: { NSMouseInRect(anchorPoint, $0.frame, false) }) ?? NSScreen.main {
+            let visibleFrame = screen.visibleFrame
+            if frame.minY < visibleFrame.minY + 8 {
+                frame.origin.y = visibleFrame.minY + 8
+            } else if frame.maxY > visibleFrame.maxY - 8 {
+                frame.origin.y = visibleFrame.maxY - frame.height - 8
+            }
+        }
+
         self.setFrame(frame, display: true)
     }
 
