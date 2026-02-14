@@ -7,29 +7,21 @@ protocol GeminiTextTransforming {
 
 @MainActor
 final class DictationCoordinator: ObservableObject {
+    static let shared = DictationCoordinator()
+
     @Published private(set) var statusText: String = "待機中"
     @Published private(set) var isProcessing: Bool = false
 
-    private let speechManager: SpeechManager
-    private let config: Config
-    private let geminiService: GeminiTextTransforming
-    private let overlay: OverlayPanel
+    private let speechManager = SpeechManager.shared
+    private let config = Config.shared
+    private let geminiService: GeminiTextTransforming = GeminiService()
+    private let overlay = OverlayPanel()
 
     private var selectedTextForCorrection: String?
     private var partialTextTask: Task<Void, Never>?
     private var overlayDismissTask: Task<Void, Never>?
 
-    init(
-        speechManager: SpeechManager = .shared,
-        config: Config = .shared,
-        geminiService: GeminiTextTransforming = GeminiService(),
-        overlay: OverlayPanel = OverlayPanel()
-    ) {
-        self.speechManager = speechManager
-        self.config = config
-        self.geminiService = geminiService
-        self.overlay = overlay
-    }
+    private init() {}
 
     func startRecording() {
         Log.d("[DictationCoordinator] startRecording called (isProcessing=\(isProcessing), isRecording=\(speechManager.isRecording))")
@@ -83,9 +75,8 @@ final class DictationCoordinator: ObservableObject {
         selectedTextForCorrection = nil
         Log.d("[DictationCoordinator] stopRecording correctionText=\(correctionText != nil ? "\(correctionText!.count) chars" : "nil")")
 
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            await self.completeRecognition(correctionText: correctionText)
+        Task {
+            await completeRecognition(correctionText: correctionText)
         }
     }
 
@@ -190,7 +181,7 @@ final class DictationCoordinator: ObservableObject {
 
     private func startPartialTextUpdates(isCorrection: Bool) {
         stopPartialTextUpdates()
-        partialTextTask = Task { @MainActor [weak self] in
+        partialTextTask = Task { [weak self] in
             guard let self else { return }
             while self.speechManager.isRecording && !Task.isCancelled {
                 let partial = self.speechManager.partialText
@@ -209,7 +200,7 @@ final class DictationCoordinator: ObservableObject {
 
     private func dismissOverlayAfterDelay(seconds: Double = 1.5) {
         overlayDismissTask?.cancel()
-        overlayDismissTask = Task { @MainActor [weak self] in
+        overlayDismissTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
             if !Task.isCancelled {

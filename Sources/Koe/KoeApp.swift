@@ -9,7 +9,7 @@ struct KoeApp: App {
     @StateObject private var speechManager = SpeechManager.shared
     @StateObject private var hotkeyManager = HotkeyManager.shared
     @ObservedObject private var config = Config.shared
-    @StateObject private var coordinator = DictationCoordinator()
+    @ObservedObject private var coordinator = DictationCoordinator.shared
     @State private var settingsWindow: NSWindow?
 
     var body: some Scene {
