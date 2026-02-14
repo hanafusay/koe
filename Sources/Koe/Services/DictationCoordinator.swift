@@ -1,10 +1,5 @@
 import Foundation
 
-protocol GeminiTextTransforming {
-    func rewrite(text: String, systemPrompt: String, apiKey: String) async throws -> String
-    func correct(selectedText: String, instruction: String, systemPrompt: String, apiKey: String) async throws -> String
-}
-
 @MainActor
 final class DictationCoordinator: ObservableObject {
     static let shared = DictationCoordinator()

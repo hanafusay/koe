@@ -28,8 +28,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        Log.d("[AppDelegate] Launch started")
+        Log.d("[AppDelegate] Launch started \(appVersionDescription)")
         checkAllPermissions()
+    }
+
+    private var appVersionDescription: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        return "version=\(version) build=\(build)"
     }
 
     private func checkAllPermissions() {

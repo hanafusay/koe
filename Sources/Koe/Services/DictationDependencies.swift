@@ -1,5 +1,10 @@
 import Foundation
 
+protocol GeminiTextTransforming {
+    func rewrite(text: String, systemPrompt: String, apiKey: String) async throws -> String
+    func correct(selectedText: String, instruction: String, systemPrompt: String, apiKey: String) async throws -> String
+}
+
 @MainActor
 protocol DictationConfigProviding: AnyObject {
     var recognitionLanguage: String { get }
