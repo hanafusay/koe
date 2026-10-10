@@ -16,151 +16,81 @@ guard CommandLine.arguments.count > 2 else {
 let mode = CommandLine.arguments[1]
 let outputPath = CommandLine.arguments[2]
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func makeBitmap(width: Int, height: Int) -> NSBitmapImageRep {
-    NSBitmapImageRep(
-        bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+func render(size: Int, to path: String, _ draw: (CGContext, CGFloat) -> Void) {
+    let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
     )!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    draw(NSGraphicsContext.current!.cgContext, CGFloat(size))
+    NSGraphicsContext.restoreGraphicsState()
+    try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+    print("Generated: \(path)")
 }
 
-func savePNG(_ rep: NSBitmapImageRep, to path: String) {
-    let data = rep.representation(using: .png, properties: [:])!
-    try! data.write(to: URL(fileURLWithPath: path))
-}
-
-/// Render an SF Symbol as a tinted NSImage
-func sfSymbol(_ name: String, pointSize: CGFloat, weight: NSFont.Weight, color: NSColor) -> NSImage {
-    let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
-    let base = NSImage(systemSymbolName: name, accessibilityDescription: nil)!
-        .withSymbolConfiguration(config)!
-
-    let size = base.size
-    let img = NSImage(size: size, flipped: false) { rect in
-        base.draw(in: rect)
-        color.set()
-        rect.fill(using: .sourceIn)
-        return true
+/// 録音中の表示と同じ、中央ほど長い 5 本の棒。
+func drawBars(in ctx: CGContext, rect: CGRect, color: CGColor) {
+    let heights: [CGFloat] = [0.34, 0.62, 1.0, 0.62, 0.34]
+    let barWidth = rect.width * 0.12
+    let gap = (rect.width - barWidth * CGFloat(heights.count)) / CGFloat(heights.count - 1)
+    ctx.setFillColor(color)
+    for (index, height) in heights.enumerated() {
+        let barHeight = rect.height * 0.86 * height
+        let bar = CGRect(
+            x: rect.minX + CGFloat(index) * (barWidth + gap),
+            y: rect.midY - barHeight / 2,
+            width: barWidth,
+            height: barHeight
+        )
+        ctx.addPath(CGPath(roundedRect: bar, cornerWidth: barWidth / 2, cornerHeight: barWidth / 2, transform: nil))
+        ctx.fillPath()
     }
-    return img
 }
 
-/// Draw a bold "!" character
-func drawExclamation(in ctx: CGContext, center: CGPoint, fontSize: CGFloat, color: NSColor) {
-    let font = NSFont.systemFont(ofSize: fontSize, weight: .black)
-    let str = NSAttributedString(string: "!", attributes: [
-        .font: font,
-        .foregroundColor: color,
-    ])
-    let line = CTLineCreateWithAttributedString(str)
-    let bounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
+func generateAppIcon() {
+    render(size: 1024, to: outputPath) { ctx, s in
+        // macOS のアイコン格子に合わせ、外周に余白を取った角丸に描く。
+        let inset = s * 0.1
+        let body = CGRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
+        let shape = CGPath(roundedRect: body, cornerWidth: body.width * 0.225, cornerHeight: body.width * 0.225, transform: nil)
 
-    let x = center.x - bounds.width / 2 - bounds.origin.x
-    let y = center.y - bounds.height / 2 - bounds.origin.y
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: -s * 0.01), blur: s * 0.03, color: CGColor(gray: 0, alpha: 0.3))
+        ctx.addPath(shape)
+        ctx.setFillColor(CGColor(gray: 0.08, alpha: 1))
+        ctx.fillPath()
+        ctx.restoreGState()
 
-    ctx.saveGState()
-    ctx.textPosition = CGPoint(x: x, y: y)
-    CTLineDraw(line, ctx)
-    ctx.restoreGState()
+        ctx.saveGState()
+        ctx.addPath(shape)
+        ctx.clip()
+        let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: [CGColor(red: 0.16, green: 0.16, blue: 0.18, alpha: 1), CGColor(red: 0.07, green: 0.07, blue: 0.08, alpha: 1)] as CFArray,
+            locations: [0, 1]
+        )!
+        ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: body.maxY), end: CGPoint(x: 0, y: body.minY), options: [])
+        ctx.restoreGState()
+
+        drawBars(in: ctx, rect: body.insetBy(dx: body.width * 0.27, dy: body.height * 0.27), color: CGColor(gray: 1, alpha: 1))
+    }
 }
 
-// ---------------------------------------------------------------------------
-// App icon (1024x1024)
-// ---------------------------------------------------------------------------
-
-func generateAppIcon(outputPath: String) {
-    let s: CGFloat = 1024
-    let rep = makeBitmap(width: Int(s), height: Int(s))
-
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    let ctx = NSGraphicsContext.current!.cgContext
-
-    // --- Rounded rect background ---
-    let corner: CGFloat = s * 0.22
-    let bgRect = CGRect(x: 0, y: 0, width: s, height: s)
-    let bgPath = CGPath(roundedRect: bgRect, cornerWidth: corner, cornerHeight: corner, transform: nil)
-    ctx.addPath(bgPath)
-    ctx.clip()
-
-    // Background: flat #fbefb3
-    ctx.setFillColor(CGColor(red: 0.984, green: 0.937, blue: 0.702, alpha: 1.0))
-    ctx.fill(bgRect)
-
-    // --- Draw SF Symbol mic.fill (large, centered) with drop shadow ---
-    // Mic color: #abc7f9
-    let micColor = NSColor(red: 0.671, green: 0.780, blue: 0.976, alpha: 1.0)
-    let mic = sfSymbol("mic.fill", pointSize: s * 0.58, weight: .medium, color: micColor)
-    let micSize = mic.size
-    let micX = s * 0.50 - micSize.width / 2
-    let micY = s * 0.46 - micSize.height / 2
-    let micRect = NSRect(x: micX, y: micY, width: micSize.width, height: micSize.height)
-
-    // Shadow for mic
-    ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: -s * 0.012), blur: s * 0.035,
-                  color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.25))
-    mic.draw(in: micRect)
-    ctx.restoreGState()
-
-    // --- Draw "!" badge (orange #fab24e, top-right) with drop shadow ---
-    let exColor = NSColor(red: 0.980, green: 0.698, blue: 0.306, alpha: 1.0)
-    ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: -s * 0.008), blur: s * 0.025,
-                  color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.20))
-    drawExclamation(in: ctx, center: CGPoint(x: s * 0.74, y: s * 0.74), fontSize: s * 0.30, color: exColor)
-    ctx.restoreGState()
-
-    NSGraphicsContext.restoreGraphicsState()
-    savePNG(rep, to: outputPath)
-    print("App icon generated: \(outputPath)")
+func generateMenuBarIcon(scale: Int) {
+    render(size: 22 * scale, to: outputPath) { ctx, s in
+        drawBars(in: ctx, rect: CGRect(x: s * 0.14, y: s * 0.14, width: s * 0.72, height: s * 0.72), color: CGColor(gray: 0, alpha: 1))
+    }
 }
-
-// ---------------------------------------------------------------------------
-// Menu bar template icon (mic + !)
-// ---------------------------------------------------------------------------
-
-func generateMenuBarIcon(outputPath: String, scale: Int) {
-    let s = 22 * scale
-    let sz = CGFloat(s)
-    let rep = makeBitmap(width: s, height: s)
-
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    let ctx = NSGraphicsContext.current!.cgContext
-
-    let black = NSColor(red: 0, green: 0, blue: 0, alpha: 0.85)
-
-    // SF Symbol mic.fill (centered, large)
-    let mic = sfSymbol("mic.fill", pointSize: sz * 0.58, weight: .medium, color: black)
-    let micSize = mic.size
-    let micX = sz * 0.42 - micSize.width / 2
-    let micY = sz * 0.46 - micSize.height / 2
-    mic.draw(in: NSRect(x: micX, y: micY, width: micSize.width, height: micSize.height))
-
-    // "!" badge (top-right, smaller)
-    drawExclamation(in: ctx, center: CGPoint(x: sz * 0.78, y: sz * 0.74), fontSize: sz * 0.38, color: black)
-
-    NSGraphicsContext.restoreGraphicsState()
-    savePNG(rep, to: outputPath)
-    print("Menu bar icon generated (\(scale)x): \(outputPath)")
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
 
 switch mode {
 case "app":
-    generateAppIcon(outputPath: outputPath)
+    generateAppIcon()
 case "menu":
-    generateMenuBarIcon(outputPath: outputPath, scale: 2)
+    generateMenuBarIcon(scale: 2)
 case "menu1x":
-    generateMenuBarIcon(outputPath: outputPath, scale: 1)
+    generateMenuBarIcon(scale: 1)
 default:
     fputs("Unknown mode: \(mode). Use 'app', 'menu', or 'menu1x'.\n", stderr)
     exit(1)
