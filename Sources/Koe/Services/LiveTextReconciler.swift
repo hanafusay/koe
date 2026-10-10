@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// 音声認識の途中経過。確定した区間の文と、まだ書き換わりうる末尾の文に分かれる。
@@ -75,5 +76,13 @@ struct LiveTextReconciler {
 
     private static func commonPrefix(_ a: String, _ b: String) -> String {
         String(zip(a, b).prefix { $0 == $1 }.map(\.0))
+    }
+}
+
+extension LiveTextReconciler {
+    /// 押されている ⌃⌥⌘ は、修飾キーを外して合成したキーにも受け取る側のアプリが重ねる（⌃ で英字が消え、⌥ で記号に化ける）。
+    /// fn は重ねられず fn+文字もそのまま入力されるので、fn の押下中は打ち込める。
+    static func canType(flags: CGEventFlags) -> Bool {
+        flags.isDisjoint(with: [.maskControl, .maskAlternate, .maskCommand])
     }
 }

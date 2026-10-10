@@ -18,7 +18,8 @@ final class KeystrokeTyper: LiveTyping {
     /// 入力ソースの切り替えが前面アプリに届く前にキーが処理されないよう、戻すのも打ち終えてから少し待つ。
     private static let restoreDelay: Duration = .milliseconds(500)
 
-    /// 押しっぱなしの録音キー（fn や Option）がキーに混ざると、削除が単語削除や前方削除に化けるため、修飾キーの状態を持たない発生源を使う。
+    /// 押しっぱなしの録音キーがキーに混ざらないよう、修飾キーの状態を持たない発生源を使う。
+    /// それでも ⌃⌥⌘ は受け取る側で重なるため、押されている間は canType が false になり打ち込まない。
     private let source = CGEventSource(stateID: .privateState)
     private var savedInputSource: TISInputSource?
     private var restoreTask: Task<Void, Never>?
@@ -40,6 +41,10 @@ final class KeystrokeTyper: LiveTyping {
         savedInputSource = current
         TISSelectInputSource(ascii)
         Log.d("[KeystrokeTyper] Switched input source to an ASCII layout while typing")
+    }
+
+    var canType: Bool {
+        LiveTextReconciler.canType(flags: CGEventSource.flagsState(.combinedSessionState))
     }
 
     func apply(_ ops: [LiveTextOp]) -> Bool {

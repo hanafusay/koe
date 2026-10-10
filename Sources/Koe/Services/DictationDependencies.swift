@@ -11,6 +11,8 @@ protocol PasteServing: AnyObject {
 @MainActor
 protocol LiveTyping: AnyObject {
     func begin()
+    /// 今キーを送ってよいか。false の間は apply を呼ばない。
+    var canType: Bool { get }
     /// 前面アプリか入力欄が begin のときから変わっていたら何もせず false を返す。
     func apply(_ ops: [LiveTextOp]) -> Bool
     func end()

@@ -36,6 +36,8 @@ final class DictationCoordinator: ObservableObject {
     var onSpeech: () -> Void = {}
     /// 入力ソースを英字に切り替えてから、前面アプリに切り替えが届くまで待つ時間。
     private static let inputSourceSettle: TimeInterval = 0.1
+    /// 確定や取り消しで、押されている ⌃⌥⌘ が離されるのを待つ上限。過ぎたら修飾付きのキーを送らずにやめる。
+    private static let modifierReleaseTimeout: TimeInterval = 3
 
     /// 完了のチェックは打ち込んだ文そのものが成功の合図なので短く、注意は読めるだけ残す。
     private static let doneLinger = 0.45
@@ -160,13 +162,15 @@ final class DictationCoordinator: ObservableObject {
         // 短い fn タップ（入力ソースの切り替え）の取り消しは利用者の操作ではないので鳴らさない。
         if overlay.isVisible { play(.cancel) }
         speechManager.cancelRecording()
-        if var session = live {
+        if let session = live {
             stopLiveTimer()
-            if session.typingFrom != nil, !session.interrupted {
-                _ = typer.apply(session.reconciler.cancel())
-            }
-            typer.end()
             live = nil
+            if session.typingFrom != nil, !session.interrupted {
+                isProcessing = true
+                completionTask = Task { await eraseLiveTyping(session) }
+            } else {
+                typer.end()
+            }
         }
         selectedTextForCorrection = nil
         statusText = "待機中"
@@ -180,6 +184,32 @@ final class DictationCoordinator: ObservableObject {
         Log.d("[DictationCoordinator] User input during live typing; stop typing")
         live?.interrupted = true
         stopLiveTimer()
+    }
+
+    /// 録音キーの ⌃ や ⌥ を押したまま esc を押すと、削除が単語削除などに化けるため、離されてから消す。
+    private func eraseLiveTyping(_ session: LiveSession) async {
+        defer {
+            typer.end()
+            isProcessing = false
+        }
+        var session = session
+        guard await waitUntilTypable() else {
+            Log.d("[DictationCoordinator] Modifiers still held; leave typed text")
+            overlay.update(.notice("修飾キーが押されたままのため、入力した文字を消しませんでした"))
+            overlay.show()
+            dismissOverlayAfterDelay(seconds: Self.noticeLinger)
+            return
+        }
+        _ = typer.apply(session.reconciler.cancel())
+    }
+
+    private func waitUntilTypable() async -> Bool {
+        let deadline = Self.now + Self.modifierReleaseTimeout
+        while !typer.canType {
+            guard Self.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return true
     }
 
     func pasteLastTranscript() {
@@ -224,9 +254,11 @@ final class DictationCoordinator: ObservableObject {
     }
 
     /// 安定した分だけを打ち込む。時間が経つだけで安定する文字もあるため、タイマーからも呼ぶ。
+    /// ⌃⌥⌘ が押されている間は reconciler を進めず、離されたあとのタイマーでまとめて打つ。
     private func flushLive() {
         let now = Self.now
         guard let session = live, !session.interrupted, let typingFrom = session.typingFrom, now >= typingFrom,
+              typer.canType,
               let ops = live?.reconciler.sync(at: now) else { return }
         if !typer.apply(ops) {
             live?.interrupted = true
@@ -241,11 +273,13 @@ final class DictationCoordinator: ObservableObject {
             try? await Task.sleep(for: .seconds(Self.inputSourceSettle))
         }
         let final = await speechManager.finalTranscript()
+        // ハンズフリーは録音キーを押した瞬間に確定するため、⌃ や ⌥ が離されてから打つ。
+        let typable = await waitUntilTypable()
         guard var session = live else { return }
         live = nil
         session.reconciler.observe(final, at: Self.now)
         let ops = session.reconciler.finish()
-        let typedAll = !session.interrupted && typer.apply(ops)
+        let typedAll = !session.interrupted && typable && typer.apply(ops)
         typer.end()
         Log.d("[DictationCoordinator] Live typing finished (final=\(final.text.count) chars, typedAll=\(typedAll))")
 
@@ -260,7 +294,8 @@ final class DictationCoordinator: ObservableObject {
             dismissOverlayAfterDelay(seconds: Self.doneLinger)
         } else {
             statusText = "完了（途中で中断）"
-            overlay.update(.notice("入力先が変わったため途中で止めました。⌃⌘V で全文を入力できます"))
+            let reason = typable ? "入力先が変わったため" : "修飾キーが押されたままのため"
+            overlay.update(.notice("\(reason)途中で止めました。⌃⌘V で全文を入力できます"))
             dismissOverlayAfterDelay(seconds: Self.noticeLinger)
         }
     }
