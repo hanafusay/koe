@@ -69,7 +69,7 @@ codesign_app() {
     echo "=== Code signing (ad-hoc) ==="
 
     # Sign the executable first (inside the bundle)
-    codesign --force --sign - \
+    codesign --force --sign - --options runtime \
         --identifier "${BUNDLE_ID}" \
         -r="${DESIGNATED_REQUIREMENT}" \
         --entitlements "${ENTITLEMENTS}" \
@@ -77,7 +77,7 @@ codesign_app() {
     echo "  Signed executable"
 
     # Sign the whole bundle (seals Info.plist & Resources)
-    codesign --force --sign - \
+    codesign --force --sign - --options runtime \
         --identifier "${BUNDLE_ID}" \
         -r="${DESIGNATED_REQUIREMENT}" \
         --entitlements "${ENTITLEMENTS}" \
