@@ -4,7 +4,6 @@ import Carbon.HIToolbox
 enum TriggerKey: String, CaseIterable, Identifiable {
     case fn
     case rightOption
-    case rightCommand
     case control
 
     var id: String { rawValue }
@@ -13,7 +12,6 @@ enum TriggerKey: String, CaseIterable, Identifiable {
         switch self {
         case .fn: return "fn"
         case .rightOption: return "右 Option (⌥)"
-        case .rightCommand: return "右 Command (⌘)"
         case .control: return "Control (⌃)"
         }
     }
@@ -23,7 +21,6 @@ enum TriggerKey: String, CaseIterable, Identifiable {
         switch self {
         case .fn: return "fn"
         case .rightOption: return "右⌥"
-        case .rightCommand: return "右⌘"
         case .control: return "⌃"
         }
     }
@@ -32,7 +29,6 @@ enum TriggerKey: String, CaseIterable, Identifiable {
         switch self {
         case .fn: return .maskSecondaryFn
         case .rightOption: return .maskAlternate
-        case .rightCommand: return .maskCommand
         case .control: return .maskControl
         }
     }
@@ -42,7 +38,6 @@ enum TriggerKey: String, CaseIterable, Identifiable {
         switch self {
         case .fn: return CGEventFlags.maskSecondaryFn.rawValue
         case .rightOption: return 0x40
-        case .rightCommand: return 0x10
         case .control: return 0x01 | 0x2000
         }
     }
