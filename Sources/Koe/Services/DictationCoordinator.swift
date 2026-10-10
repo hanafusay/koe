@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Combine
 
 @MainActor
@@ -81,6 +82,15 @@ final class DictationCoordinator: ObservableObject {
         overlayDismissTask?.cancel()
         overlayDismissTask = nil
         overlay.orderOut(nil)
+
+        // パスワード欄では、読み上げた内容を打ち込んだり選択範囲を読んだりしない。
+        if IsSecureEventInputEnabled() {
+            Log.d("[DictationCoordinator] Secure input is enabled; not recording")
+            overlay.update(.notice("パスワード入力中のため音声入力を止めています"))
+            overlay.show()
+            dismissOverlayAfterDelay(seconds: Self.noticeLinger)
+            return
+        }
 
         let selected = pasteService.getSelectedText()
         selectedTextForCorrection = selected
