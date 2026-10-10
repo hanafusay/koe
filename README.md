@@ -9,7 +9,7 @@
 `fn` を押している間だけ録音し、話している最中から前面アプリの入力欄へ文字を打ち込みます。
 文字を選択した状態で話すと、話した指示（「丁寧語にして」など）で選択範囲を書き換えます。
 
-![録音中の表示](screenshots/overlay-typing.png)
+![話すそばから文字が入る様子](screenshots/demo.gif)
 
 ## プライバシーとセキュリティ
 
@@ -82,8 +82,8 @@ DMG を開いて `Koe.app` を `Applications` フォルダにドラッグ＆ド�
 
 | 欄 | 内容 | 例 |
 |------|------|------|
-| 正しい表記（必須） | 入力したい語。音声認識に聞き取りの手がかりとして渡します | `経費精算` |
-| 誤認識（任意） | 実際に出てしまった語。カンマか読点で区切って複数書けます | `経費生産, 経費清算` |
+| 正しい表記（必須） | 入力したい語。音声認識に聞き取りの手がかりとして渡します | `Slack` |
+| 誤認識（任意） | 実際に出てしまった語。カンマか読点で区切って複数書けます | `スラック, スラッグ` |
 
 誤認識に書いた語が出ると、入力する前に正しい表記へ置き換えます。手がかりだけでは直らない語も、誤認識を書いておけば確実に直ります。変更は次の録音から反映されます。
 
@@ -168,9 +168,9 @@ pkill -x Koe; open /Applications/Koe.app
 bash scripts/check-trigger-state-machine.sh
 
 # 音声ファイルを本番と同じ認識経路に流し、途中結果と打ち込む操作を表示する（キー入力は送らない）
-say -v Kyoko -o /tmp/d.aiff "経費精算の仕様を確認します"
+say -v Kyoko -o /tmp/d.aiff "スラックで仕様を確認します"
 source scripts/lib.sh && build_release   # Command Line Tools だけの環境では macOS 26 SDK を選んでビルド
-.build/release/Koe --transcribe-file /tmp/d.aiff --dictionary 経費精算=経費生産,仕様=使用
+.build/release/Koe --transcribe-file /tmp/d.aiff --dictionary Slack=スラック,仕様=使用
 
 # 画面下の表示・設定画面・メニューを PNG に書き出す
 .build/release/Koe --render-snapshots /tmp/koe-snapshots
