@@ -42,8 +42,8 @@ bash scripts/check-trigger-state-machine.sh
 
 # 音声ファイルを本番と同じ認識経路へ流し、途中結果と打ち込む操作を時刻付きで表示（キー入力は送らない）
 source scripts/lib.sh && build_release   # Command Line Tools だけの環境では macOS 26 SDK を選んでビルド
-say -v Kyoko -o /tmp/d.aiff "経費精算の仕様を確認します"
-.build/release/Koe --transcribe-file /tmp/d.aiff --dictionary 経費精算=経費生産,仕様=使用
+say -v Kyoko -o /tmp/d.aiff "スラックで仕様を確認します"
+.build/release/Koe --transcribe-file /tmp/d.aiff --dictionary Slack=スラック,仕様=使用
 
 # 画面下の表示・設定画面・メニューを PNG に書き出す（権限は「未許可」で描かれる）
 .build/release/Koe --render-snapshots /tmp/koe-snapshots

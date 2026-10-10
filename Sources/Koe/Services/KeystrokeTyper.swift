@@ -18,16 +18,19 @@ final class KeystrokeTyper: LiveTyping {
     /// 入力ソースの切り替えが前面アプリに届く前にキーが処理されないよう、戻すのも打ち終えてから少し待つ。
     private static let restoreDelay: Duration = .milliseconds(500)
 
-    /// 押しっぱなしの録音キー（fn や Option）がキーに混ざると、削除が単語削除や前方削除に化けるため、修飾キーの状態を持たない発生源を使う。
+    /// 押しっぱなしの録音キーがキーに混ざらないよう、修飾キーの状態を持たない発生源を使う。
+    /// それでも ⌃⌥⌘ は受け取る側で重なるため、押されている間は canType が false になり打ち込まない。
     private let source = CGEventSource(stateID: .privateState)
     private var savedInputSource: TISInputSource?
     private var restoreTask: Task<Void, Never>?
     private var targetProcess: pid_t?
+    private var targetElement: AXUIElement?
 
     private init() {}
 
     func begin() {
         targetProcess = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        targetElement = PasteService.focusedElement()
         restoreTask?.cancel()
         restoreTask = nil
         guard savedInputSource == nil else { return }
@@ -40,11 +43,21 @@ final class KeystrokeTyper: LiveTyping {
         Log.d("[KeystrokeTyper] Switched input source to an ASCII layout while typing")
     }
 
+    var canType: Bool {
+        LiveTextReconciler.canType(flags: CGEventSource.flagsState(.combinedSessionState))
+    }
+
     func apply(_ ops: [LiveTextOp]) -> Bool {
         guard !ops.isEmpty else { return true }
         // 途中で別のアプリへ移ったら、そのアプリの文字を消さないよう打つのをやめる。
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == targetProcess else {
             Log.d("[KeystrokeTyper] Frontmost app changed; stop typing")
+            return false
+        }
+        // 同じアプリの別の入力欄へ移った場合も、そこの文字を消さないよう打つのをやめる。
+        // AXUIElement の == は CFEqual で比べる。
+        guard PasteService.focusedElement() == targetElement else {
+            Log.d("[KeystrokeTyper] Focused element changed; stop typing")
             return false
         }
         Log.d("[KeystrokeTyper] apply \(ops.map(Self.describe).joined(separator: " "))")
@@ -61,6 +74,7 @@ final class KeystrokeTyper: LiveTyping {
 
     func end() {
         targetProcess = nil
+        targetElement = nil
         guard savedInputSource != nil else { return }
         restoreTask?.cancel()
         restoreTask = Task { [weak self] in

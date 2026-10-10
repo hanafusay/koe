@@ -34,6 +34,9 @@ enum SnapshotRenderer {
         OverlayCase(name: "notice-unavailable", status: .notice("Apple Intelligence が無効のため修正できません")),
         OverlayCase(name: "notice-no-speech", status: .notice("声を聞き取れませんでした。もう少し長く話してください")),
         OverlayCase(name: "notice-interrupted", status: .notice("入力先が変わったため途中で止めました。⌃⌘V で全文を入力できます")),
+        OverlayCase(name: "notice-correction-target-changed",
+                    status: .notice("入力先が変わったため貼り付けませんでした。⌃⌘V で入力できます")),
+        OverlayCase(name: "notice-secure-input", status: .notice("パスワード入力中のため音声入力を止めています")),
         OverlayCase(name: "typing-reduce-motion", status: .typing(isHandsFree: false), reduceMotion: true),
     ]
 

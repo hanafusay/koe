@@ -5,6 +5,11 @@ final class PasteService {
 
     private init() {}
 
+    /// クリップボード履歴アプリに残さないための印（nspasteboard.org の取り決め）。
+    /// Transient はすぐ消える内容、Concealed は残るが履歴には載せない内容を表す。
+    private static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+    private static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+
     /// Retrieve the currently selected text from the focused application via Accessibility API.
     static func getSelectedText() -> String? {
         guard AXIsProcessTrusted() else {
@@ -12,20 +17,10 @@ final class PasteService {
             return nil
         }
 
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedElement: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            systemWide,
-            kAXFocusedUIElementAttribute as CFString,
-            &focusedElement
-        ) == .success,
-        let focusedElement,
-        CFGetTypeID(focusedElement) == AXUIElementGetTypeID() else {
+        guard let focused = focusedElement() else {
             Log.d("[PasteService] Could not get focused element")
             return nil
         }
-
-        let focused = unsafeBitCast(focusedElement, to: AXUIElement.self)
 
         var selectedText: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
@@ -44,11 +39,24 @@ final class PasteService {
         return text
     }
 
+    static func focusedElement() -> AXUIElement? {
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            AXUIElementCreateSystemWide(),
+            kAXFocusedUIElementAttribute as CFString,
+            &focused
+        ) == .success,
+        let focused,
+        CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        return unsafeBitCast(focused, to: AXUIElement.self)
+    }
+
     static func paste(text: String) {
         let pasteboard = NSPasteboard.general
         let saved = pasteboard.pasteboardItems?.map(copy) ?? []
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        pasteboard.setString("", forType: transientType)
         let ourChangeCount = pasteboard.changeCount
 
         // Simulate Cmd+V after a brief delay to ensure clipboard is ready
@@ -119,5 +127,6 @@ extension PasteService: PasteServing {
     func copy(text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString("", forType: Self.concealedType)
     }
 }

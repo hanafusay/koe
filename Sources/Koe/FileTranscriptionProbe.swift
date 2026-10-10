@@ -13,7 +13,7 @@ enum FileTranscriptionProbe {
         return URL(fileURLWithPath: arguments[index + 1])
     }
 
-    /// `--dictionary 経費精算=経費生産,仕様` の形で、保存済みの辞書の代わりに使う辞書を渡す。`=` の右は誤認識パターン。
+    /// `--dictionary Slack=スラック,仕様` の形で、保存済みの辞書の代わりに使う辞書を渡す。`=` の右は誤認識パターン。
     private static var requestedDictionary: [DictionaryEntry] {
         let arguments = CommandLine.arguments
         guard let index = arguments.firstIndex(of: "--dictionary"), index + 1 < arguments.count else { return [] }

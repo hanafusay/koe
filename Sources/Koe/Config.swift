@@ -79,6 +79,7 @@ final class Config: ObservableObject {
 
         self.soundEffects = defaults.object(forKey: Keys.soundEffects) as? Bool ?? true
 
+        // 選べなくなった録音キー（右 Command）が保存されていたら fn に戻す。
         if let savedTriggerKey = defaults.string(forKey: Keys.triggerKey),
            let key = TriggerKey(rawValue: savedTriggerKey) {
             self.triggerKey = key

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 extension TriggerStateMachineCheck {
@@ -61,6 +62,27 @@ extension TriggerStateMachineCheck {
         check(cancelled.typed.isEmpty, "live: nothing remains typed after cancel")
         var untouched = LiveTextReconciler()
         check(untouched.cancel() == [], "live: cancel before typing deletes nothing")
+
+        check(LiveTextReconciler.canType(flags: []), "modifiers: types when no modifier is held")
+        check(LiveTextReconciler.canType(flags: [.maskSecondaryFn]), "modifiers: types while fn is held")
+        check(LiveTextReconciler.canType(flags: [.maskShift, .maskAlphaShift]), "modifiers: shift and caps lock do not stop typing")
+        check(!LiveTextReconciler.canType(flags: [.maskControl]), "modifiers: does not type while control is held")
+        check(!LiveTextReconciler.canType(flags: [.maskAlternate]), "modifiers: does not type while option is held")
+        check(!LiveTextReconciler.canType(flags: [.maskCommand]), "modifiers: does not type while command is held")
+        check(!LiveTextReconciler.canType(flags: [.maskSecondaryFn, .maskControl]), "modifiers: fn plus control still stops typing")
+
+        // 修飾キーを押している間は sync を呼ばない。離したあとの sync と finish で、打った文字が結果に揃うこと。
+        var held = LiveTextReconciler()
+        var heldField = FakeField(text: "既存")
+        held.observe(Transcript(volatile: "資料は"), at: 0)
+        heldField.apply(held.sync(at: 0.4))
+        held.observe(Transcript(volatile: "資料はSlack"), at: 0.5)
+        held.observe(Transcript(volatile: "資料はslackで"), at: 0.6)
+        held.observe(Transcript(finalized: "資料はSlackで共有しておきます。"), at: 0.9)
+        heldField.apply(held.sync(at: 1.5))
+        heldField.apply(held.finish())
+        check(heldField.text == "既存資料はSlackで共有しておきます。" && !heldField.overDeleted,
+              "modifiers: text skipped while held is typed after release without touching existing text")
 
         checkNeverOverDeletes()
     }

@@ -24,7 +24,7 @@ extension [DictionaryEntry] {
 
     /// 誤認識パターンを正しい表記に置き換える。左から一度だけ走査し、長い一致を優先する。
     /// 正しい表記そのものも一致の対象にして素通しするため、正しい表記がパターンを含んでいても
-    /// （「精算」→「経費精算」など）二重に置き換わらない。
+    /// （「議事」→「議事録」など）二重に置き換わらない。
     func corrected(_ text: String) -> String {
         let rules = flatMap { entry -> [(from: String, to: String)] in
             let word = entry.trimmedWord
