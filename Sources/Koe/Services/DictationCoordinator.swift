@@ -25,7 +25,7 @@ final class DictationCoordinator: ObservableObject {
         var reconciler = LiveTextReconciler()
         /// 打ち込みを始めてよい時刻。録音キーの押下が確定するまでは nil で、短い fn タップでは何も打たない。
         var typingFrom: TimeInterval?
-        /// 途中で前面アプリが変わり、打ち込みをやめた。
+        /// 途中で前面アプリや入力欄が変わったか、利用者がキーやクリックで操作したため、打ち込みをやめた。
         var interrupted = false
     }
 
@@ -161,6 +161,15 @@ final class DictationCoordinator: ObservableObject {
         selectedTextForCorrection = nil
         statusText = "待機中"
         overlay.dismiss()
+    }
+
+    /// 利用者のキー入力やクリックの後に打ち直すと、動いた入力位置の文字を消してしまうため、以降は打ち込まない。
+    /// キー監視のコールバックから同期で呼ばれるので、軽い処理だけにする。
+    func interruptLiveTyping() {
+        guard live != nil, live?.interrupted == false else { return }
+        Log.d("[DictationCoordinator] User input during live typing; stop typing")
+        live?.interrupted = true
+        stopLiveTimer()
     }
 
     func pasteLastTranscript() {

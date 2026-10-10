@@ -12,20 +12,10 @@ final class PasteService {
             return nil
         }
 
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedElement: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            systemWide,
-            kAXFocusedUIElementAttribute as CFString,
-            &focusedElement
-        ) == .success,
-        let focusedElement,
-        CFGetTypeID(focusedElement) == AXUIElementGetTypeID() else {
+        guard let focused = focusedElement() else {
             Log.d("[PasteService] Could not get focused element")
             return nil
         }
-
-        let focused = unsafeBitCast(focusedElement, to: AXUIElement.self)
 
         var selectedText: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
@@ -42,6 +32,18 @@ final class PasteService {
 
         Log.d("[PasteService] Selected text found (\(text.count) chars)")
         return text
+    }
+
+    static func focusedElement() -> AXUIElement? {
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            AXUIElementCreateSystemWide(),
+            kAXFocusedUIElementAttribute as CFString,
+            &focused
+        ) == .success,
+        let focused,
+        CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        return unsafeBitCast(focused, to: AXUIElement.self)
     }
 
     static func paste(text: String) {

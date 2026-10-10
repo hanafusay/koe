@@ -64,16 +64,22 @@ final class HotkeyManager {
     private var triggerHeld = false
     private var perform: (Machine.Effect) -> Void = { _ in }
     private var pasteLastTranscript: () -> Void = {}
+    private var interruptLiveTyping: () -> Void = {}
 
     private static let systemDefinedEventType: UInt32 = 14
     private static let mediaKeySubtype: Int16 = 8
 
     private init() {}
 
-    func start(perform: @escaping (TriggerStateMachine.Effect) -> Void, pasteLastTranscript: @escaping () -> Void) {
+    func start(
+        perform: @escaping (TriggerStateMachine.Effect) -> Void,
+        pasteLastTranscript: @escaping () -> Void,
+        interruptLiveTyping: @escaping () -> Void
+    ) {
         stop()
         self.perform = perform
         self.pasteLastTranscript = pasteLastTranscript
+        self.interruptLiveTyping = interruptLiveTyping
         Log.d("[HotkeyManager] Accessibility trusted: \(AXIsProcessTrusted())")
         setupEventTap()
     }
@@ -82,6 +88,8 @@ final class HotkeyManager {
         let eventMask: CGEventMask = (1 << CGEventType.flagsChanged.rawValue)
             | (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventMask(Self.systemDefinedEventType))
+            | (1 << CGEventType.leftMouseDown.rawValue)
+            | (1 << CGEventType.rightMouseDown.rawValue)
         let retainedSelf = Unmanaged.passRetained(self)
         let refcon = retainedSelf.toOpaque()
         eventTapRefcon = refcon
@@ -112,7 +120,7 @@ final class HotkeyManager {
             retainedSelf.release()
             eventTapRefcon = nil
             Log.d("[HotkeyManager] CGEvent tap FAILED → fallback to NSEvent monitor (esc cannot be swallowed)")
-            fallbackMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
+            fallbackMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown]) { [weak self] event in
                 guard let cgEvent = event.cgEvent else { return }
                 MainActor.assumeIsolated {
                     _ = self?.handle(type: cgEvent.type, event: cgEvent)
@@ -139,6 +147,10 @@ final class HotkeyManager {
             return false
         case .keyDown:
             return handleKeyDown(event)
+        case .leftMouseDown, .rightMouseDown:
+            // クリックで入力位置が動いたあとに打ち直すと、別の場所の文字を消してしまう。前面アプリに届く前に止める。
+            interruptLiveTyping()
+            return false
         default:
             if type.rawValue == Self.systemDefinedEventType,
                NSEvent(cgEvent: event)?.subtype.rawValue == Self.mediaKeySubtype {
@@ -164,6 +176,7 @@ final class HotkeyManager {
             return send(.escape).contains(.cancel)
         }
 
+        interruptLiveTyping()
         send(.otherKeyDown)
 
         let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift])

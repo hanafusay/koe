@@ -11,7 +11,7 @@ protocol PasteServing: AnyObject {
 @MainActor
 protocol LiveTyping: AnyObject {
     func begin()
-    /// 前面アプリが begin のときから変わっていたら何もせず false を返す。
+    /// 前面アプリか入力欄が begin のときから変わっていたら何もせず false を返す。
     func apply(_ ops: [LiveTextOp]) -> Bool
     func end()
 }

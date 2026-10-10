@@ -23,11 +23,13 @@ final class KeystrokeTyper: LiveTyping {
     private var savedInputSource: TISInputSource?
     private var restoreTask: Task<Void, Never>?
     private var targetProcess: pid_t?
+    private var targetElement: AXUIElement?
 
     private init() {}
 
     func begin() {
         targetProcess = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        targetElement = PasteService.focusedElement()
         restoreTask?.cancel()
         restoreTask = nil
         guard savedInputSource == nil else { return }
@@ -47,6 +49,12 @@ final class KeystrokeTyper: LiveTyping {
             Log.d("[KeystrokeTyper] Frontmost app changed; stop typing")
             return false
         }
+        // 同じアプリの別の入力欄へ移った場合も、そこの文字を消さないよう打つのをやめる。
+        // AXUIElement の == は CFEqual で比べる。
+        guard PasteService.focusedElement() == targetElement else {
+            Log.d("[KeystrokeTyper] Focused element changed; stop typing")
+            return false
+        }
         Log.d("[KeystrokeTyper] apply \(ops.map(Self.describe).joined(separator: " "))")
         for op in ops {
             switch op {
@@ -61,6 +69,7 @@ final class KeystrokeTyper: LiveTyping {
 
     func end() {
         targetProcess = nil
+        targetElement = nil
         guard savedInputSource != nil else { return }
         restoreTask?.cancel()
         restoreTask = Task { [weak self] in

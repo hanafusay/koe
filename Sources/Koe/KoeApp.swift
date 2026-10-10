@@ -75,6 +75,9 @@ struct KoeApp: App {
             },
             pasteLastTranscript: { [self] in
                 coordinator.pasteLastTranscript()
+            },
+            interruptLiveTyping: { [self] in
+                coordinator.interruptLiveTyping()
             }
         )
     }
