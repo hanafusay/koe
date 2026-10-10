@@ -165,11 +165,16 @@ final class HotkeyManager {
         }
     }
 
+    private static let functionKeyCodes: Set<Int> = [kVK_Function, 179]
+
     private func handleKeyDown(_ event: CGEvent) -> Bool {
         let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
         if keyCode == kVK_Escape {
             return send(.escape).contains(.cancel)
         }
+
+        // fn（🌐）キーは押すたびに keyDown も出すため、録音キーの操作を利用者の入力と取り違えないよう読み捨てる。
+        guard !Self.functionKeyCodes.contains(keyCode) else { return false }
 
         interruptLiveTyping()
         send(.otherKeyDown)
