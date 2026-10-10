@@ -1,0 +1,21 @@
+# Swift Package Manager
+.build/
+Package.resolved
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+# macOS
+.DS_Store
+
+# Environment
+.env
+
+# Claude Code
+.claude/
+
+# Build artifacts
+Koe.app
+dist/

@@ -1,0 +1,78 @@
+name: Release DMG
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync version from git tag to Info.plist
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Syncing version: ${VERSION}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION}" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
+
+      - name: Build release binary
+        run: swift build -c release
+
+      - name: Create app bundle and DMG
+        run: ./create-dmg.sh --skip-build
+
+      - name: Get version and changelog
+        id: meta
+        run: |
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+          # 前のタグを取得（なければ初回リリースとして全コミットを対象）
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${GITHUB_REF_NAME}"
+          else
+            RANGE="${GITHUB_REF_NAME}"
+          fi
+
+          # feat: と fix: のコミットのみ抽出し、プレフィックスを除去してリスト化
+          CHANGELOG=$(git log "$RANGE" --pretty=format:"%s" --no-merges \
+            | grep -E "^(feat|fix):" \
+            | sed 's/^feat: /- ✨ /' \
+            | sed 's/^fix: /- 🐛 /')
+          # GITHUB_OUTPUT に複数行を書き込む
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "$CHANGELOG"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: koe! ${{ steps.meta.outputs.tag }}
+          body: |
+            ## What's New
+
+            ${{ steps.meta.outputs.changelog }}
+
+            ## インストール方法
+
+            1. `Koe-*.dmg` をダウンロード
+            2. DMG を開いて `Koe.app` を `Applications` にドラッグ
+            3. **初回起動:** ダブルクリック → ブロックされたら「完了」→ **システム設定 > プライバシーとセキュリティ** →「このまま開く」
+            4. 権限を許可（マイク・音声認識・アクセシビリティ・入力監視）
+
+            > macOS 26 以上が必要です。選択範囲の修正には Apple Intelligence が必要です。
+            > アドホック署名のため初回は「このまま開く」操作が必要です。
+          files: dist/*.dmg
+          draft: false
+          prerelease: false
