@@ -13,8 +13,9 @@ xcuserdata/
 # Environment
 .env
 
-# Claude Code
-.claude/
+# Claude Code（Skill だけは .agents/skills へのリンクとして共有する）
+.claude/*
+!.claude/skills
 
 # Build artifacts
 Koe.app
