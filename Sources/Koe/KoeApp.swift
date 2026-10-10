@@ -21,7 +21,7 @@ struct KoeApp: App {
             )
         } label: {
             if speechManager.isRecording {
-                Image(systemName: "mic.fill")
+                Image(systemName: "waveform.circle.fill")
             } else {
                 Image(nsImage: Self.menuBarIcon)
             }
@@ -41,7 +41,7 @@ struct KoeApp: App {
                 return img
             }
         }
-        return NSImage(systemSymbolName: "mic", accessibilityDescription: "koe!")!
+        return NSImage(systemSymbolName: "waveform", accessibilityDescription: "koe!")!
     }()
 
     private func openSettings() {
