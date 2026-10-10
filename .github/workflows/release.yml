@@ -13,16 +13,18 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
       - name: Sync version from git tag to Info.plist
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # タグ名は PlistBuddy のコマンド文にそのまま入るため、vX.Y.Z 以外は受け付けない。
+          [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag must be vX.Y.Z: ${GITHUB_REF_NAME}"; exit 1; }
           echo "Syncing version: ${VERSION}"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION}" Resources/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion '${VERSION}'" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString '${VERSION}'" Resources/Info.plist
 
       - name: Build release binary
         run: swift build -c release
@@ -74,5 +76,11 @@ jobs:
 
           > macOS 26 以上が必要です。選択範囲の修正には Apple Intelligence が必要です。
           > アドホック署名のため初回は「このまま開く」操作が必要です。
+
+          ## SHA-256
+
+          \`\`\`
+          $(cd dist && shasum -a 256 *.dmg)
+          \`\`\`
           NOTES
           gh release create "$GITHUB_REF_NAME" dist/*.dmg --title "koe! $GITHUB_REF_NAME" --notes-file notes.md
