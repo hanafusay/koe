@@ -5,6 +5,11 @@ final class PasteService {
 
     private init() {}
 
+    /// クリップボード履歴アプリに残さないための印（nspasteboard.org の取り決め）。
+    /// Transient はすぐ消える内容、Concealed は残るが履歴には載せない内容を表す。
+    private static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+    private static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+
     /// Retrieve the currently selected text from the focused application via Accessibility API.
     static func getSelectedText() -> String? {
         guard AXIsProcessTrusted() else {
@@ -51,6 +56,7 @@ final class PasteService {
         let saved = pasteboard.pasteboardItems?.map(copy) ?? []
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        pasteboard.setString("", forType: transientType)
         let ourChangeCount = pasteboard.changeCount
 
         // Simulate Cmd+V after a brief delay to ensure clipboard is ready
@@ -121,5 +127,6 @@ extension PasteService: PasteServing {
     func copy(text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString("", forType: Self.concealedType)
     }
 }
