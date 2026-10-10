@@ -56,23 +56,23 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: koe! ${{ steps.meta.outputs.tag }}
-          body: |
-            ## What's New
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGELOG: ${{ steps.meta.outputs.changelog }}
+        run: |
+          cat > notes.md <<NOTES
+          ## What's New
 
-            ${{ steps.meta.outputs.changelog }}
+          ${CHANGELOG}
 
-            ## インストール方法
+          ## インストール方法
 
-            1. `Koe-*.dmg` をダウンロード
-            2. DMG を開いて `Koe.app` を `Applications` にドラッグ
-            3. **初回起動:** ダブルクリック → ブロックされたら「完了」→ **システム設定 > プライバシーとセキュリティ** →「このまま開く」
-            4. 権限を許可（マイク・音声認識・アクセシビリティ・入力監視）
+          1. \`Koe-*.dmg\` をダウンロード
+          2. DMG を開いて \`Koe.app\` を \`Applications\` にドラッグ
+          3. **初回起動:** ダブルクリック → ブロックされたら「完了」→ **システム設定 > プライバシーとセキュリティ** →「このまま開く」
+          4. 権限を許可（マイク・音声認識・アクセシビリティ・入力監視）
 
-            > macOS 26 以上が必要です。選択範囲の修正には Apple Intelligence が必要です。
-            > アドホック署名のため初回は「このまま開く」操作が必要です。
-          files: dist/*.dmg
-          draft: false
-          prerelease: false
+          > macOS 26 以上が必要です。選択範囲の修正には Apple Intelligence が必要です。
+          > アドホック署名のため初回は「このまま開く」操作が必要です。
+          NOTES
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg --title "koe! $GITHUB_REF_NAME" --notes-file notes.md
