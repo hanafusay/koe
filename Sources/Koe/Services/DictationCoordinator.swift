@@ -14,6 +14,8 @@ final class DictationCoordinator: ObservableObject {
     private let overlay: OverlayPanel
 
     private var selectedTextForCorrection: String?
+    /// 修正結果を貼るアプリ。話している間に前面が変わったら、別のアプリへ貼らない。
+    private var correctionTargetPID: pid_t?
     private var completionTask: Task<Void, Never>?
     private var overlayDismissTask: Task<Void, Never>?
     private var speechSubscriptions: Set<AnyCancellable> = []
@@ -82,6 +84,7 @@ final class DictationCoordinator: ObservableObject {
 
         let selected = pasteService.getSelectedText()
         selectedTextForCorrection = selected
+        correctionTargetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         Log.d("[DictationCoordinator] Selected text for correction: \(selected.map { "\($0.count) chars" } ?? "none")")
 
         do {
@@ -135,7 +138,8 @@ final class DictationCoordinator: ObservableObject {
             selectedTextForCorrection = nil
             overlay.update(.correcting)
             overlay.show()
-            completionTask = Task { await completeCorrection(of: selected) }
+            let target = correctionTargetPID
+            completionTask = Task { await completeCorrection(of: selected, in: target) }
         }
     }
 
@@ -244,7 +248,7 @@ final class DictationCoordinator: ObservableObject {
 
     private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
-    private func completeCorrection(of selectedText: String) async {
+    private func completeCorrection(of selectedText: String, in targetPID: pid_t?) async {
         defer { isProcessing = false }
         let instruction = await speechManager.finalTranscript().text
         guard !instruction.isEmpty else {
@@ -262,8 +266,14 @@ final class DictationCoordinator: ObservableObject {
         statusText = "修正中..."
         do {
             let corrected = try await corrector.correct(selectedText: selectedText, instruction: instruction)
-            pasteService.paste(text: corrected)
             Config.shared.remember(corrected)
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == targetPID else {
+                statusText = "完了（貼り付けを中止）"
+                overlay.update(.notice("入力先が変わったため貼り付けませんでした。⌃⌘V で入力できます"))
+                dismissOverlayAfterDelay(seconds: Self.noticeLinger)
+                return
+            }
+            pasteService.paste(text: corrected)
             statusText = "完了"
             overlay.update(.done)
             dismissOverlayAfterDelay(seconds: Self.doneLinger)
