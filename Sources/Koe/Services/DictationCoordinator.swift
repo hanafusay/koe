@@ -36,7 +36,7 @@ final class DictationCoordinator: ObservableObject {
     var onSpeech: () -> Void = {}
     /// 入力ソースを英字に切り替えてから、前面アプリに切り替えが届くまで待つ時間。
     private static let inputSourceSettle: TimeInterval = 0.1
-    /// 確定や取り消しで、押されている ⌃⌥⌘ が離されるのを待つ上限。過ぎたら修飾付きのキーを送らずにやめる。
+    /// 確定や取り消しで Command が離されるのを待つ上限。
     private static let modifierReleaseTimeout: TimeInterval = 3
 
     /// 完了のチェックは打ち込んだ文そのものが成功の合図なので短く、注意は読めるだけ残す。
@@ -186,7 +186,6 @@ final class DictationCoordinator: ObservableObject {
         stopLiveTimer()
     }
 
-    /// 録音キーの ⌃ や ⌥ を押したまま esc を押すと、削除が単語削除などに化けるため、離されてから消す。
     private func eraseLiveTyping(_ session: LiveSession) async {
         defer {
             typer.end()
@@ -254,7 +253,6 @@ final class DictationCoordinator: ObservableObject {
     }
 
     /// 安定した分だけを打ち込む。時間が経つだけで安定する文字もあるため、タイマーからも呼ぶ。
-    /// ⌃⌥⌘ が押されている間は reconciler を進めず、離されたあとのタイマーでまとめて打つ。
     private func flushLive() {
         let now = Self.now
         guard let session = live, !session.interrupted, let typingFrom = session.typingFrom, now >= typingFrom,
@@ -273,7 +271,6 @@ final class DictationCoordinator: ObservableObject {
             try? await Task.sleep(for: .seconds(Self.inputSourceSettle))
         }
         let final = await speechManager.finalTranscript()
-        // ハンズフリーは録音キーを押した瞬間に確定するため、⌃ や ⌥ が離されてから打つ。
         let typable = await waitUntilTypable()
         guard var session = live else { return }
         live = nil

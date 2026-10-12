@@ -19,7 +19,6 @@ final class KeystrokeTyper: LiveTyping {
     private static let restoreDelay: Duration = .milliseconds(500)
 
     /// 押しっぱなしの録音キーがキーに混ざらないよう、修飾キーの状態を持たない発生源を使う。
-    /// それでも ⌃⌥⌘ は受け取る側で重なるため、押されている間は canType が false になり打ち込まない。
     private let source = CGEventSource(stateID: .privateState)
     private var savedInputSource: TISInputSource?
     private var restoreTask: Task<Void, Never>?
