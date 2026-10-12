@@ -80,9 +80,7 @@ struct LiveTextReconciler {
 }
 
 extension LiveTextReconciler {
-    /// 押されている ⌃⌥⌘ は、修飾キーを外して合成したキーにも受け取る側のアプリが重ねる（⌃ で英字が消え、⌥ で記号に化ける）。
-    /// fn は重ねられず fn+文字もそのまま入力されるので、fn の押下中は打ち込める。
     static func canType(flags: CGEventFlags) -> Bool {
-        flags.isDisjoint(with: [.maskControl, .maskAlternate, .maskCommand])
+        !flags.contains(.maskCommand)
     }
 }

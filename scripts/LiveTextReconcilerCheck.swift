@@ -73,7 +73,6 @@ extension TriggerStateMachineCheck {
         check(!LiveTextReconciler.canType(flags: [.maskControl, .maskCommand]), "modifiers: control plus command still stops typing")
         check(!LiveTextReconciler.canType(flags: [.maskAlternate, .maskCommand]), "modifiers: option plus command still stops typing")
 
-        // Command の押下中に保留した結果は、離した後に既存の文字を消さず入力する。
         var held = LiveTextReconciler()
         var heldField = FakeField(text: "既存")
         held.observe(Transcript(volatile: "資料は"), at: 0)
