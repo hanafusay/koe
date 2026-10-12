@@ -66,12 +66,14 @@ extension TriggerStateMachineCheck {
         check(LiveTextReconciler.canType(flags: []), "modifiers: types when no modifier is held")
         check(LiveTextReconciler.canType(flags: [.maskSecondaryFn]), "modifiers: types while fn is held")
         check(LiveTextReconciler.canType(flags: [.maskShift, .maskAlphaShift]), "modifiers: shift and caps lock do not stop typing")
-        check(!LiveTextReconciler.canType(flags: [.maskControl]), "modifiers: does not type while control is held")
-        check(!LiveTextReconciler.canType(flags: [.maskAlternate]), "modifiers: does not type while option is held")
+        check(LiveTextReconciler.canType(flags: [.maskControl]), "modifiers: types while control is held")
+        check(LiveTextReconciler.canType(flags: [.maskAlternate]), "modifiers: types while option is held")
         check(!LiveTextReconciler.canType(flags: [.maskCommand]), "modifiers: does not type while command is held")
-        check(!LiveTextReconciler.canType(flags: [.maskSecondaryFn, .maskControl]), "modifiers: fn plus control still stops typing")
+        check(LiveTextReconciler.canType(flags: [.maskSecondaryFn, .maskControl]), "modifiers: fn plus control permits typing")
+        check(!LiveTextReconciler.canType(flags: [.maskControl, .maskCommand]), "modifiers: control plus command still stops typing")
+        check(!LiveTextReconciler.canType(flags: [.maskAlternate, .maskCommand]), "modifiers: option plus command still stops typing")
 
-        // 修飾キーを押している間は sync を呼ばない。離したあとの sync と finish で、打った文字が結果に揃うこと。
+        // Command の押下中に保留した結果は、離した後に既存の文字を消さず入力する。
         var held = LiveTextReconciler()
         var heldField = FakeField(text: "既存")
         held.observe(Transcript(volatile: "資料は"), at: 0)
