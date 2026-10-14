@@ -59,7 +59,7 @@ final class HotkeyManager {
     private var triggerHeld = false
     private var perform: (Machine.Effect) -> Void = { _ in }
     private var pasteLastTranscript: () -> Void = {}
-    private var interruptLiveTyping: () -> Void = {}
+    private var liveInputPositionMoved: () -> Void = {}
 
     private static let systemDefinedEventType: UInt32 = 14
     private static let mediaKeySubtype: Int16 = 8
@@ -69,12 +69,12 @@ final class HotkeyManager {
     func start(
         perform: @escaping (TriggerStateMachine.Effect) -> Void,
         pasteLastTranscript: @escaping () -> Void,
-        interruptLiveTyping: @escaping () -> Void
+        liveInputPositionMoved: @escaping () -> Void
     ) {
         stop()
         self.perform = perform
         self.pasteLastTranscript = pasteLastTranscript
-        self.interruptLiveTyping = interruptLiveTyping
+        self.liveInputPositionMoved = liveInputPositionMoved
         Log.d("[HotkeyManager] Accessibility trusted: \(AXIsProcessTrusted())")
         setupEventTap()
     }
@@ -143,8 +143,8 @@ final class HotkeyManager {
         case .keyDown:
             return handleKeyDown(event)
         case .leftMouseDown, .rightMouseDown:
-            // クリックで入力位置が動いたあとに打ち直すと、別の場所の文字を消してしまう。前面アプリに届く前に止める。
-            interruptLiveTyping()
+            // クリックで入力位置が動いたあとに打ち直すと、別の場所の文字を消してしまう。前面アプリに届く前に打つ位置を切り替える。
+            liveInputPositionMoved()
             return false
         default:
             if type.rawValue == Self.systemDefinedEventType,
@@ -176,7 +176,7 @@ final class HotkeyManager {
         // fn（🌐）キーは押すたびに keyDown も出すため、録音キーの操作を利用者の入力と取り違えないよう読み捨てる。
         guard !Self.functionKeyCodes.contains(keyCode) else { return false }
 
-        interruptLiveTyping()
+        liveInputPositionMoved()
         send(.otherKeyDown)
 
         let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift])
