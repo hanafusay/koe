@@ -32,12 +32,15 @@ final class KeystrokeTyper: LiveTyping {
         targetElement = PasteService.focusedElement()
         restoreTask?.cancel()
         restoreTask = nil
-        guard savedInputSource == nil else { return }
+        switchToASCIIIfNeeded()
+    }
 
+    /// 入力ソースをアプリごとに切り替える設定では、移った先のアプリで日本語入力がオンに戻っていることがある。
+    private func switchToASCIIIfNeeded() {
         let current = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
         guard Self.isInputMethod(current),
               let ascii = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue() else { return }
-        savedInputSource = current
+        if savedInputSource == nil { savedInputSource = current }
         TISSelectInputSource(ascii)
         Log.d("[KeystrokeTyper] Switched input source to an ASCII layout while typing")
     }
@@ -46,17 +49,23 @@ final class KeystrokeTyper: LiveTyping {
         LiveTextReconciler.canType(flags: CGEventSource.flagsState(.combinedSessionState))
     }
 
+    func followFocus() -> Bool {
+        let process = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let element = PasteService.focusedElement()
+        // AXUIElement の == は CFEqual で比べる。
+        guard process != targetProcess || element != targetElement else { return false }
+        targetProcess = process
+        targetElement = element
+        switchToASCIIIfNeeded()
+        Log.d("[KeystrokeTyper] Focus moved; type the rest into the new field")
+        return true
+    }
+
     func apply(_ ops: [LiveTextOp]) -> Bool {
         guard !ops.isEmpty else { return true }
-        // 途中で別のアプリへ移ったら、そのアプリの文字を消さないよう打つのをやめる。
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == targetProcess else {
-            Log.d("[KeystrokeTyper] Frontmost app changed; stop typing")
-            return false
-        }
-        // 同じアプリの別の入力欄へ移った場合も、そこの文字を消さないよう打つのをやめる。
-        // AXUIElement の == は CFEqual で比べる。
-        guard PasteService.focusedElement() == targetElement else {
-            Log.d("[KeystrokeTyper] Focused element changed; stop typing")
+        // 話した内容をパスワード欄へ打ち込まない。
+        guard !IsSecureEventInputEnabled() else {
+            Log.d("[KeystrokeTyper] Secure input is enabled; stop typing")
             return false
         }
         Log.d("[KeystrokeTyper] apply \(ops.map(Self.describe).joined(separator: " "))")

@@ -85,6 +85,31 @@ extension TriggerStateMachineCheck {
         check(heldField.text == "既存資料はSlackで共有しておきます。" && !heldField.overDeleted,
               "modifiers: text skipped while held is typed after release without touching existing text")
 
+        var moved = LiveTextReconciler()
+        var slack = FakeField(text: "既存")
+        var notion = FakeField(text: "メモ")
+        moved.observe(Transcript(finalized: "お疲れさまです。"), at: 0)
+        slack.apply(moved.sync(at: 0))
+        moved.moveToNewPosition()
+        moved.observe(Transcript(finalized: "お疲れさまです。", volatile: "明日の会議"), at: 0.1)
+        notion.apply(moved.sync(at: 0.5))
+        moved.observe(Transcript(finalized: "お疲れさまです。明日の会議の件。"), at: 0.6)
+        notion.apply(moved.finish())
+        check(slack.text == "既存お疲れさまです。" && notion.text == "メモ明日の会議の件。",
+              "move: text after the move goes only to the new field, and the old field keeps what was typed")
+        check(moved.cancel() == [.backspace(8)], "move: cancel deletes only what was typed at the current position")
+
+        var revisedAfterMove = LiveTextReconciler()
+        var oldField = FakeField(text: "")
+        var newField = FakeField(text: "既存")
+        revisedAfterMove.observe(Transcript(volatile: "今日は良い"), at: 0)
+        oldField.apply(revisedAfterMove.sync(at: 0.4))
+        revisedAfterMove.moveToNewPosition()
+        revisedAfterMove.observe(Transcript(finalized: "今日はいい天気。"), at: 0.5)
+        newField.apply(revisedAfterMove.sync(at: 0.5))
+        check(oldField.text == "今日は良い" && newField.text == "既存天気。" && !newField.overDeleted,
+              "move: a revision of text left at the old position never deletes in the new field")
+
         checkNeverOverDeletes()
     }
 
@@ -120,6 +145,35 @@ extension TriggerStateMachineCheck {
         }
         check(allMatch, "live: after finishing, the field holds exactly the final transcript (300 random sessions)")
         check(allSafe, "live: never deletes more than this session typed, and cancel restores the field (300 random sessions)")
+
+        // 途中で入力位置を何度も移しても、どの入力欄でも既存の文字やそこへ打った文字より多くは消さない。
+        var moveSafe = true
+        for _ in 0..<300 {
+            var reconciler = LiveTextReconciler()
+            var fields = [FakeField(text: "既存の文")]
+            var transcript = Transcript()
+            var time: TimeInterval = 0
+            for _ in 0..<40 {
+                time += Double(generator.next() % 200) / 1000
+                switch generator.next() % 7 {
+                case 0 where !transcript.volatile.isEmpty:
+                    transcript.finalized += transcript.volatile + "。"
+                    transcript.volatile = ""
+                case 1 where !transcript.volatile.isEmpty:
+                    transcript.volatile = String(transcript.volatile.dropLast(Int(generator.next() % 3)))
+                case 2:
+                    reconciler.moveToNewPosition()
+                    fields.append(FakeField(text: "既存の文"))
+                default:
+                    transcript.volatile.append(alphabet[Int(generator.next() % UInt64(alphabet.count))])
+                }
+                reconciler.observe(transcript, at: time)
+                fields[fields.count - 1].apply(reconciler.sync(at: time))
+            }
+            fields[fields.count - 1].apply(reconciler.finish())
+            moveSafe = moveSafe && fields.allSatisfy { !$0.overDeleted && $0.text.hasPrefix("既存の文") }
+        }
+        check(moveSafe, "move: no field loses its existing text, however often the position moves (300 random sessions)")
     }
 
     struct SplitMix64 {

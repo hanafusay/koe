@@ -22,8 +22,10 @@ struct LiveTextReconciler {
     /// 打っては消すちらつきを抑えつつ、話してから文字が出るまでの遅れを 0.3 秒ほどに収められる。
     static let stabilityWindow: TimeInterval = 0.3
 
-    /// このセッションで打ち込んだ文字。削除はこの範囲を超えない。
+    /// 今の入力位置に打ち込んだ文字。削除はこの範囲を超えない。
     private(set) var typed = ""
+    /// 前の入力位置に打ち終えた文字数（書記素）。認識結果の先頭からこの分を除いた残りを今の入力位置に合わせる。
+    private var handedOff = 0
     private var transcript = Transcript()
     /// 現在の確定済みの文に続く途中結果の履歴。先頭は窓の始まりの時点で見えていた結果。
     private var history: [(time: TimeInterval, volatile: String)] = []
@@ -45,18 +47,25 @@ struct LiveTextReconciler {
         if let baseline = history.first, baseline.time <= windowStart {
             stableVolatile = history.dropFirst().reduce(baseline.volatile) { Self.commonPrefix($0, $1.volatile) }
         }
-        let stable = transcript.finalized + stableVolatile
+        let stable = remaining(transcript.finalized + stableVolatile)
         // 打った文字が最新の結果と矛盾しないうちは、安定判定が一時的に短くなっても消さない。
-        let keepsTyped = transcript.text.hasPrefix(typed) && typed.count >= stable.count
+        let keepsTyped = remaining(transcript.text).hasPrefix(typed) && typed.count >= stable.count
         return reconcile(to: keepsTyped ? typed : stable)
+    }
+
+    /// 入力位置が動いた（別の入力欄へ移った、クリックした、利用者が打った）とき、打った文字をその場に残し、
+    /// 以降の文字を新しい入力位置に打つ。前の位置の文字は、後で認識結果が変わっても直さない。
+    mutating func moveToNewPosition() {
+        handedOff += typed.count
+        typed = ""
     }
 
     /// 録音を確定したとき、最後の結果すべてに合わせる。
     mutating func finish() -> [LiveTextOp] {
-        reconcile(to: transcript.text)
+        reconcile(to: remaining(transcript.text))
     }
 
-    /// 取り消したとき、このセッションで打った文字をすべて消す。
+    /// 取り消したとき、今の入力位置に打った文字をすべて消す。
     mutating func cancel() -> [LiveTextOp] {
         reconcile(to: "")
     }
@@ -72,6 +81,10 @@ struct LiveTextReconciler {
         }
         typed = target
         return ops
+    }
+
+    private func remaining(_ text: String) -> String {
+        String(text.dropFirst(handedOff))
     }
 
     private static func commonPrefix(_ a: String, _ b: String) -> String {

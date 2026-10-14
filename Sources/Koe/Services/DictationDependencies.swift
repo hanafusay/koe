@@ -13,7 +13,9 @@ protocol LiveTyping: AnyObject {
     func begin()
     /// 今キーを送ってよいか。false の間は apply を呼ばない。
     var canType: Bool { get }
-    /// 前面アプリか入力欄が begin のときから変わっていたら何もせず false を返す。
+    /// 前面アプリか入力欄が前回から変わっていたら、打つ先を今の入力欄に移して true を返す。
+    func followFocus() -> Bool
+    /// パスワード欄では何もせず false を返す。
     func apply(_ ops: [LiveTextOp]) -> Bool
     func end()
 }

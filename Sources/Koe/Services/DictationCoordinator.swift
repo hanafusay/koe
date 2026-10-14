@@ -26,7 +26,7 @@ final class DictationCoordinator: ObservableObject {
         var reconciler = LiveTextReconciler()
         /// 打ち込みを始めてよい時刻。録音キーの押下が確定するまでは nil で、短い fn タップでは何も打たない。
         var typingFrom: TimeInterval?
-        /// 途中で前面アプリや入力欄が変わったか、利用者がキーやクリックで操作したため、打ち込みをやめた。
+        /// パスワード欄へ移ったため、打ち込みをやめた。
         var interrupted = false
     }
 
@@ -177,13 +177,15 @@ final class DictationCoordinator: ObservableObject {
         overlay.dismiss()
     }
 
-    /// 利用者のキー入力やクリックの後に打ち直すと、動いた入力位置の文字を消してしまうため、以降は打ち込まない。
+    /// 利用者のキー入力やクリックで入力位置が動いたので、打った文字はその場に残し、続きを動いた先に打つ。
+    /// 打ち直すと動いた先の文字を消してしまうため、打った文字には戻らない。
     /// キー監視のコールバックから同期で呼ばれるので、軽い処理だけにする。
-    func interruptLiveTyping() {
-        guard live != nil, live?.interrupted == false else { return }
-        Log.d("[DictationCoordinator] User input during live typing; stop typing")
-        live?.interrupted = true
-        stopLiveTimer()
+    func liveInputPositionMoved() {
+        guard live != nil else { return }
+        Log.d("[DictationCoordinator] User input during live typing; continue at the new position")
+        live?.reconciler.moveToNewPosition()
+        // クリックした先へフォーカスが移りきる前に、元の入力欄へ続きを打たないよう少し待つ。
+        if live?.typingFrom != nil { live?.typingFrom = Self.now + Self.inputSourceSettle }
     }
 
     private func eraseLiveTyping(_ session: LiveSession) async {
@@ -199,6 +201,8 @@ final class DictationCoordinator: ObservableObject {
             dismissOverlayAfterDelay(seconds: Self.noticeLinger)
             return
         }
+        // 打った後に入力欄が変わっていたら、移った先の文字を消さないよう何もしない。
+        guard !typer.followFocus() else { return }
         _ = typer.apply(session.reconciler.cancel())
     }
 
@@ -256,11 +260,18 @@ final class DictationCoordinator: ObservableObject {
     private func flushLive() {
         let now = Self.now
         guard let session = live, !session.interrupted, let typingFrom = session.typingFrom, now >= typingFrom,
-              typer.canType,
-              let ops = live?.reconciler.sync(at: now) else { return }
+              typer.canType else { return }
+        if typer.followFocus() {
+            // 移った先で入力ソースを英字に切り替えた場合に、切り替えが届くのを待ってから打つ。
+            live?.reconciler.moveToNewPosition()
+            live?.typingFrom = now + Self.inputSourceSettle
+            return
+        }
+        guard let ops = live?.reconciler.sync(at: now) else { return }
         if !typer.apply(ops) {
             live?.interrupted = true
             stopLiveTimer()
+            overlay.update(.notice("パスワード入力欄に移ったため入力を止めました"))
         }
     }
 
@@ -274,6 +285,10 @@ final class DictationCoordinator: ObservableObject {
         let typable = await waitUntilTypable()
         guard var session = live else { return }
         live = nil
+        if typable, !session.interrupted, typer.followFocus() {
+            session.reconciler.moveToNewPosition()
+            try? await Task.sleep(for: .seconds(Self.inputSourceSettle))
+        }
         session.reconciler.observe(final, at: Self.now)
         let ops = session.reconciler.finish()
         let typedAll = !session.interrupted && typable && typer.apply(ops)
@@ -291,7 +306,7 @@ final class DictationCoordinator: ObservableObject {
             dismissOverlayAfterDelay(seconds: Self.doneLinger)
         } else {
             statusText = "完了（途中で中断）"
-            let reason = typable ? "入力先が変わったため" : "修飾キーが押されたままのため"
+            let reason = typable ? "パスワード入力欄に移ったため" : "修飾キーが押されたままのため"
             overlay.update(.notice("\(reason)途中で止めました。⌃⌘V で全文を入力できます"))
             dismissOverlayAfterDelay(seconds: Self.noticeLinger)
         }
