@@ -68,9 +68,6 @@ final class OverlayPanel: NSPanel {
 enum OverlayStatus: Equatable {
     /// リアルタイム入力中。文字は入力欄に出ているので、ここには書き起こしを出さない。
     case typing(isHandsFree: Bool)
-    /// 選択範囲を修正する指示を録音中。指示はどこにも打たないので、書き起こしをここに出す。
-    case correction(isHandsFree: Bool)
-    case correcting
     case done
     /// 履歴から選んだ文をクリップボードに入れた。
     case copied
@@ -80,7 +77,6 @@ enum OverlayStatus: Equatable {
 @MainActor
 final class OverlayState: ObservableObject {
     @Published var status: OverlayStatus = .typing(isHandsFree: false)
-    @Published var transcript = ""
     /// 直近の音量（0〜1）。末尾が最新。
     @Published private(set) var levels: [Float] = Array(repeating: 0, count: 4)
 
@@ -105,7 +101,6 @@ struct OverlayView: View {
     @ObservedObject var state: OverlayState
     var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
-    private static let correctionAccent = Color(red: 0.78, green: 0.66, blue: 1.0)
     private static let warning = Color(red: 1.0, green: 0.8, blue: 0.3)
 
     var body: some View {
@@ -133,24 +128,6 @@ struct OverlayView: View {
     @ViewBuilder
     private var content: some View {
         switch state.status {
-        case .correction(let isHandsFree):
-            HStack(spacing: 8) {
-                if isHandsFree {
-                    lockIcon
-                }
-                LevelBars(levels: state.levels, color: Self.correctionAccent, reduceMotion: reduceMotion)
-                Text("選択範囲を修正")
-                    .foregroundStyle(Self.correctionAccent)
-                    .fixedSize()
-                if !transcriptTail.isEmpty {
-                    Text(transcriptTail)
-                        .lineLimit(1)
-                        .truncationMode(.head)
-                }
-                if isHandsFree {
-                    handsFreeHint
-                }
-            }
         case .typing(let isHandsFree):
             HStack(spacing: 8) {
                 if isHandsFree {
@@ -162,12 +139,6 @@ struct OverlayView: View {
                 if isHandsFree {
                     handsFreeHint
                 }
-            }
-        case .correcting:
-            HStack(spacing: 8) {
-                PulseDots(color: Self.correctionAccent, reduceMotion: reduceMotion)
-                Text("修正しています…")
-                    .foregroundStyle(.white.opacity(0.85))
             }
         case .done:
             Image(systemName: "checkmark")
@@ -201,10 +172,6 @@ struct OverlayView: View {
             .fixedSize()
     }
 
-    private var transcriptTail: String {
-        String(state.transcript.suffix(60))
-    }
-
     private var maxWidth: CGFloat {
         if case .notice = state.status { return 480 }
         return 440
@@ -212,7 +179,6 @@ struct OverlayView: View {
 
     private var borderColor: Color {
         switch state.status {
-        case .correction: return Self.correctionAccent.opacity(0.55)
         case .notice: return Self.warning.opacity(0.4)
         default: return .white.opacity(0.12)
         }
@@ -247,38 +213,5 @@ private struct LevelBars: View {
         let age = abs(index - Self.envelope.count / 2)
         let level = CGFloat(levels[levels.count - 1 - age])
         return 4 + 14 * level * envelope
-    }
-}
-
-/// 処理中の合図。スピナーより静かに、3 つの点がゆっくり明滅する。
-private struct PulseDots: View {
-    let color: Color
-    let reduceMotion: Bool
-
-    var body: some View {
-        if reduceMotion {
-            dots(at: nil)
-        } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
-                dots(at: context.date.timeIntervalSinceReferenceDate)
-            }
-        }
-    }
-
-    private func dots(at time: TimeInterval?) -> some View {
-        HStack(spacing: 4) {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .fill(color)
-                    .frame(width: 5, height: 5)
-                    .opacity(opacity(index: index, time: time))
-            }
-        }
-    }
-
-    private func opacity(index: Int, time: TimeInterval?) -> Double {
-        guard let time else { return 0.6 }
-        let wave = sin(time * 2 * .pi / 1.2 - Double(index) * 0.6)
-        return 0.35 + 0.25 * (1 + wave)
     }
 }

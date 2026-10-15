@@ -14,9 +14,6 @@ final class DictationCoordinator: ObservableObject {
     private let typer: LiveTyping
     private let overlay: OverlayPanel
 
-    private var selectedTextForCorrection: String?
-    /// 修正結果を貼るアプリ。話している間に前面が変わったら、別のアプリへ貼らない。
-    private var correctionTargetPID: pid_t?
     private var completionTask: Task<Void, Never>?
     private var overlayDismissTask: Task<Void, Never>?
     private var speechSubscriptions: Set<AnyCancellable> = []
@@ -67,7 +64,6 @@ final class DictationCoordinator: ObservableObject {
         let state = overlay.overlayState
         speechManager.$transcript
             .sink { [weak self] transcript in
-                state.transcript = transcript.text
                 self?.liveTranscriptChanged(transcript)
                 self?.onSpeech()
             }
@@ -85,7 +81,6 @@ final class DictationCoordinator: ObservableObject {
         overlayDismissTask = nil
         overlay.orderOut(nil)
 
-        // パスワード欄では、読み上げた内容を打ち込んだり選択範囲を読んだりしない。
         if IsSecureEventInputEnabled() {
             Log.d("[DictationCoordinator] Secure input is enabled; not recording")
             overlay.update(.notice("パスワード入力中のため音声入力を止めています"))
@@ -94,29 +89,17 @@ final class DictationCoordinator: ObservableObject {
             return
         }
 
-        let selected = pasteService.getSelectedText()
-        selectedTextForCorrection = selected
-        correctionTargetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        Log.d("[DictationCoordinator] Selected text for correction: \(selected.map { "\($0.count) chars" } ?? "none")")
-
         do {
             try speechManager.startRecording(language: Config.recognitionLanguage, dictionary: Config.shared.dictionary)
             Log.d("[DictationCoordinator] Recording started")
-            // 選択範囲の修正は、話し終えた指示で書き換えるため打ち込まずにまとめて処理する。
-            if selected == nil {
-                live = LiveSession()
-                overlay.update(.typing(isHandsFree: false))
-                statusText = "録音中..."
-            } else {
-                overlay.update(.correction(isHandsFree: false))
-                statusText = "修正の指示を録音中..."
-            }
+            live = LiveSession()
+            overlay.update(.typing(isHandsFree: false))
+            statusText = "録音中..."
         } catch {
             Log.d("[DictationCoordinator] startRecording error: \(error.localizedDescription)")
             statusText = "エラー: \(error.localizedDescription)"
             overlay.update(.notice(error.localizedDescription))
             overlay.show()
-            selectedTextForCorrection = nil
             dismissOverlayAfterDelay(seconds: Self.noticeLinger)
         }
     }
@@ -131,7 +114,7 @@ final class DictationCoordinator: ObservableObject {
     func lockHandsFree() {
         guard speechManager.isRecording else { return }
         statusText = "ハンズフリー録音中..."
-        overlay.update(live != nil ? .typing(isHandsFree: true) : .correction(isHandsFree: true))
+        overlay.update(.typing(isHandsFree: true))
         overlay.show()
         beginLiveTyping()
     }
@@ -143,16 +126,8 @@ final class DictationCoordinator: ObservableObject {
         speechManager.stopRecording()
         play(.commit)
         isProcessing = true
-        if live != nil {
-            stopLiveTimer()
-            completionTask = Task { await completeLiveTyping() }
-        } else if let selected = selectedTextForCorrection {
-            selectedTextForCorrection = nil
-            overlay.update(.correcting)
-            overlay.show()
-            let target = correctionTargetPID
-            completionTask = Task { await completeCorrection(of: selected, in: target) }
-        }
+        stopLiveTimer()
+        completionTask = Task { await completeLiveTyping() }
     }
 
     /// 録音を捨てる。打ち込んだ文字も消す。
@@ -172,7 +147,6 @@ final class DictationCoordinator: ObservableObject {
                 typer.end()
             }
         }
-        selectedTextForCorrection = nil
         statusText = "待機中"
         overlay.dismiss()
     }
@@ -313,44 +287,6 @@ final class DictationCoordinator: ObservableObject {
     }
 
     private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
-
-    private func completeCorrection(of selectedText: String, in targetPID: pid_t?) async {
-        defer { isProcessing = false }
-        let instruction = await speechManager.finalTranscript().text
-        guard !instruction.isEmpty else {
-            showNoSpeechNotice()
-            return
-        }
-        Log.d("[DictationCoordinator] Correcting \(selectedText.count) chars")
-        let corrector = OnDeviceLanguageModelService()
-        if let reason = corrector.unavailableReason {
-            statusText = "修正できません"
-            overlay.update(.notice("\(reason.message)のため修正できません"))
-            dismissOverlayAfterDelay(seconds: Self.noticeLinger)
-            return
-        }
-        statusText = "修正中..."
-        do {
-            let corrected = try await corrector.correct(selectedText: selectedText, instruction: instruction)
-            Config.shared.remember(corrected)
-            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == targetPID else {
-                statusText = "完了（貼り付けを中止）"
-                overlay.update(.notice("入力先が変わったため貼り付けませんでした。⌃⌘V で入力できます"))
-                dismissOverlayAfterDelay(seconds: Self.noticeLinger)
-                return
-            }
-            pasteService.paste(text: corrected)
-            statusText = "完了"
-            overlay.update(.done)
-            dismissOverlayAfterDelay(seconds: Self.doneLinger)
-        } catch where error is CancellationError {
-            overlay.dismiss()
-        } catch {
-            statusText = "修正エラー"
-            overlay.update(.notice("修正できませんでした（\(error.localizedDescription)）"))
-            dismissOverlayAfterDelay(seconds: Self.noticeLinger)
-        }
-    }
 
     private func showNoSpeechNotice() {
         statusText = "テキストが認識されませんでした"

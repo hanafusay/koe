@@ -2,7 +2,6 @@ import Foundation
 
 @MainActor
 protocol PasteServing: AnyObject {
-    func getSelectedText() -> String?
     func paste(text: String)
     func copy(text: String)
 }

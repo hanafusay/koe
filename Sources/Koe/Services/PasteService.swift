@@ -10,35 +10,6 @@ final class PasteService {
     private static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
     private static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
 
-    /// Retrieve the currently selected text from the focused application via Accessibility API.
-    static func getSelectedText() -> String? {
-        guard AXIsProcessTrusted() else {
-            Log.d("[PasteService] Accessibility not trusted. Cannot get selected text.")
-            return nil
-        }
-
-        guard let focused = focusedElement() else {
-            Log.d("[PasteService] Could not get focused element")
-            return nil
-        }
-
-        var selectedText: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            focused,
-            kAXSelectedTextAttribute as CFString,
-            &selectedText
-        ) == .success,
-        let selectedText,
-        let text = selectedText as? String,
-        !text.isEmpty else {
-            Log.d("[PasteService] No selected text found")
-            return nil
-        }
-
-        Log.d("[PasteService] Selected text found (\(text.count) chars)")
-        return text
-    }
-
     static func focusedElement() -> AXUIElement? {
         var focused: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
@@ -116,10 +87,6 @@ final class PasteService {
 
 @MainActor
 extension PasteService: PasteServing {
-    func getSelectedText() -> String? {
-        Self.getSelectedText()
-    }
-
     func paste(text: String) {
         Self.paste(text: text)
     }
