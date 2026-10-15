@@ -9,7 +9,6 @@ struct AudioInputDevice: Identifiable {
 struct SettingsView: View {
     @ObservedObject var config = Config.shared
 
-    @State private var modelUnavailableReason = OnDeviceLanguageModelService().unavailableReason
     @State private var audioInputDevices: [AudioInputDevice] = []
     @State private var grantedPermissions: Set<Permission> = []
 
@@ -52,19 +51,6 @@ struct SettingsView: View {
                 ForEach(audioInputDevices) { device in
                     Text(device.name).tag(device.id)
                 }
-            }
-
-            LabeledContent {
-                if let reason = modelUnavailableReason {
-                    Label("使えません（\(reason.message)）", systemImage: "exclamationmark.circle.fill")
-                        .labelStyle(StatusLabelStyle(tint: .orange))
-                } else {
-                    Label("使えます", systemImage: "checkmark.circle.fill")
-                        .labelStyle(StatusLabelStyle(tint: .green))
-                }
-            } label: {
-                Text("選択範囲の修正")
-                Text("文字を選択して話すと、その指示で Apple Intelligence が書き換えます")
             }
         } header: {
             Text("入力")
@@ -128,7 +114,6 @@ struct SettingsView: View {
 
     private func refreshSystemState() {
         grantedPermissions = Set(Permission.allCases.filter(\.isGranted))
-        modelUnavailableReason = OnDeviceLanguageModelService().unavailableReason
     }
 
     private func refreshAudioDevices() {

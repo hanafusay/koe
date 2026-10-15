@@ -15,7 +15,6 @@ enum SnapshotRenderer {
     private struct OverlayCase {
         let name: String
         let status: OverlayStatus
-        var transcript = ""
         var levels: [Float] = [0.35, 0.6, 0.8, 0.95]
         var reduceMotion = false
     }
@@ -24,18 +23,10 @@ enum SnapshotRenderer {
         OverlayCase(name: "typing", status: .typing(isHandsFree: false)),
         OverlayCase(name: "typing-handsfree", status: .typing(isHandsFree: true)),
         OverlayCase(name: "typing-quiet", status: .typing(isHandsFree: false), levels: [0, 0, 0.05, 0.1]),
-        OverlayCase(name: "correction", status: .correction(isHandsFree: false), transcript: "丁寧語にして"),
-        OverlayCase(name: "correction-empty", status: .correction(isHandsFree: false)),
-        OverlayCase(name: "correction-handsfree", status: .correction(isHandsFree: true),
-                    transcript: "箇条書きにまとめて"),
-        OverlayCase(name: "correcting", status: .correcting),
         OverlayCase(name: "done", status: .done),
         OverlayCase(name: "copied", status: .copied),
-        OverlayCase(name: "notice-unavailable", status: .notice("Apple Intelligence が無効のため修正できません")),
         OverlayCase(name: "notice-no-speech", status: .notice("声を聞き取れませんでした。もう少し長く話してください")),
         OverlayCase(name: "notice-interrupted", status: .notice("パスワード入力欄に移ったため途中で止めました。⌃⌘V で全文を入力できます")),
-        OverlayCase(name: "notice-correction-target-changed",
-                    status: .notice("入力先が変わったため貼り付けませんでした。⌃⌘V で入力できます")),
         OverlayCase(name: "notice-secure-input", status: .notice("パスワード入力中のため音声入力を止めています")),
         OverlayCase(name: "typing-reduce-motion", status: .typing(isHandsFree: false), reduceMotion: true),
     ]
@@ -46,7 +37,6 @@ enum SnapshotRenderer {
         for item in overlayCases {
             let state = OverlayState()
             state.status = item.status
-            state.transcript = item.transcript
             item.levels.forEach(state.push(level:))
             // ピルは常に暗いので、明るい壁紙と暗い壁紙の上で読めるかを確かめる。
             for (suffix, backdrop) in [("light", Color(white: 0.92)), ("dark", Color(white: 0.18))] {
