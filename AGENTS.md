@@ -25,3 +25,8 @@ macOS メニューバー常駐の日本語リアルタイム音声入力アプ�
 - [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) — UI デザイン原則
 - [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/) — 命名規則と API 設計
 - [SwiftUI](https://developer.apple.com/documentation/SwiftUI) / [Swift (Apple Developer)](https://developer.apple.com/documentation/swift) — フレームワークリファレンス
+
+<!-- entire-agent:begin -->
+Read .entire/agent-guide.md for this repository's workflow, source inspection, and verification guidance.
+@.entire/agent-guide.md
+<!-- entire-agent:end -->
